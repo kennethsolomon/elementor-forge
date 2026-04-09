@@ -27,6 +27,24 @@ if ( ! defined( 'ABSPATH' ) ) {
 	return;
 }
 
+// WordPress 6.9+ ships the Abilities API in core. If the core classes are
+// already in memory, skip all vendored shim requires — core wins. We use
+// `$autoload = false` on every check so we only inspect the symbol table and
+// never trigger any registered autoloaders (which could otherwise recurse back
+// into this file via composer's files autoload and produce a load-order race).
+//
+// Each individual class file also self-guards via its own `class_exists()` check,
+// but a single early-exit here is both faster and closes the race window where a
+// symbol-table change during a four-file require sequence could surprise us.
+if (
+	class_exists( 'WP_Ability', false )
+	&& class_exists( 'WP_Ability_Category', false )
+	&& class_exists( 'WP_Abilities_Registry', false )
+	&& class_exists( 'WP_Ability_Categories_Registry', false )
+) {
+	return;
+}
+
 require_once __DIR__ . '/class-wp-ability.php';
 require_once __DIR__ . '/class-wp-ability-category.php';
 require_once __DIR__ . '/class-wp-abilities-registry.php';
