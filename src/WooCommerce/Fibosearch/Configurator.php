@@ -81,11 +81,20 @@ final class Configurator {
 
 	/**
 	 * Apply the Forge defaults to Fibosearch's settings option. Existing
-	 * user-configured keys are preserved — only keys in {@see DEFAULTS} that
-	 * are not already set (or whose stored value is an empty string) are
-	 * overwritten. This makes the call idempotent: running it twice is a no-op
-	 * on the second call, and running it once after the user has tweaked a
-	 * value does not stomp their tweak.
+	 * user-configured keys are preserved — if the user has visited a setting
+	 * at all (the key exists on the stored option) their value is kept
+	 * regardless of whether it is `0`, `1`, an empty string, or any other
+	 * value. Only keys completely absent from the stored option are
+	 * populated with Forge defaults. This makes the call idempotent and,
+	 * crucially, preserves explicit user disables:
+	 *
+	 *   - Fibosearch stores checkbox state as int 0 / int 1.
+	 *   - A user who unticks a checkbox persists int 0 on the option row.
+	 *   - The previous sentinel (`'' !== $current[$key]`) treated int 0 as
+	 *     "not set" and stomped it back to the default on re-apply. That is
+	 *     a real behavior bug (user toggles lost after a re-apply).
+	 *   - The correct sentinel is `array_key_exists($key, $current)` — if
+	 *     the key is present the user has visited that setting.
 	 *
 	 * @return array{
 	 *     applied: bool,
@@ -113,7 +122,7 @@ final class Configurator {
 		$preserved = array();
 
 		foreach ( self::DEFAULTS as $key => $default_value ) {
-			if ( array_key_exists( $key, $current ) && '' !== $current[ $key ] ) {
+			if ( array_key_exists( $key, $current ) ) {
 				$preserved[] = $key;
 				continue;
 			}
@@ -141,11 +150,21 @@ final class Configurator {
 	}
 
 	/**
-	 * Detect whether the currently stored Fibosearch settings are in sync with
-	 * the Forge defaults. Returns `true` when every key in {@see DEFAULTS}
-	 * matches the stored value.
+	 * Detect whether Forge's Fibosearch defaults have been applied to the
+	 * stored option at some point — regardless of whether the user has since
+	 * tweaked individual values. Returns `true` when every key in
+	 * {@see DEFAULTS} is present on the stored option.
+	 *
+	 * This is intentionally NOT an equality check against DEFAULTS — a user
+	 * who has legitimately customized a value (or cleared a text field to
+	 * empty string) should not cause the settings page to report "defaults
+	 * out of sync". The question this method answers is "has Forge ever run
+	 * apply_defaults() successfully on this install?", not "does the current
+	 * state equal the ship-time defaults?". Because apply_defaults() only
+	 * writes keys that are entirely missing, the presence of every default
+	 * key is the correct signal.
 	 */
-	public function is_in_sync(): bool {
+	public function has_been_applied(): bool {
 		if ( ! self::is_available() ) {
 			return false;
 		}
@@ -155,17 +174,9 @@ final class Configurator {
 			return false;
 		}
 
-		foreach ( self::DEFAULTS as $key => $default_value ) {
+		foreach ( array_keys( self::DEFAULTS ) as $key ) {
 			if ( ! array_key_exists( $key, $current ) ) {
 				return false;
-			}
-			if ( $current[ $key ] !== $default_value ) {
-				// A user tweak counts as "in sync" — Forge only overwrites
-				// empty keys. So only report out-of-sync when the stored value
-				// is an empty string (which means Forge has never applied).
-				if ( '' === $current[ $key ] ) {
-					return false;
-				}
 			}
 		}
 		return true;
@@ -178,18 +189,18 @@ final class Configurator {
 	 *     detected: bool,
 	 *     version: string,
 	 *     option_exists: bool,
-	 *     in_sync: bool,
+	 *     has_been_applied: bool,
 	 *     keys_present: int
 	 * }
 	 */
 	public function report(): array {
 		if ( ! self::is_available() ) {
 			return array(
-				'detected'      => false,
-				'version'       => '',
-				'option_exists' => false,
-				'in_sync'       => false,
-				'keys_present'  => 0,
+				'detected'         => false,
+				'version'          => '',
+				'option_exists'    => false,
+				'has_been_applied' => false,
+				'keys_present'     => 0,
 			);
 		}
 
@@ -198,11 +209,11 @@ final class Configurator {
 		$keys_present  = $option_exists ? count( $stored ) : 0;
 
 		return array(
-			'detected'      => true,
-			'version'       => defined( 'DGWT_WCAS_VERSION' ) ? (string) constant( 'DGWT_WCAS_VERSION' ) : 'unknown',
-			'option_exists' => $option_exists,
-			'in_sync'       => $this->is_in_sync(),
-			'keys_present'  => $keys_present,
+			'detected'         => true,
+			'version'          => defined( 'DGWT_WCAS_VERSION' ) ? (string) constant( 'DGWT_WCAS_VERSION' ) : 'unknown',
+			'option_exists'    => $option_exists,
+			'has_been_applied' => $this->has_been_applied(),
+			'keys_present'     => $keys_present,
 		);
 	}
 

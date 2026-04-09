@@ -112,7 +112,7 @@ final class EcommerceHeader {
 
 		// Primary Fibosearch search column (center, grows).
 		$search_col = new Container( array( 'content_width' => 'boxed', '_flex_size' => '1 1 auto' ) );
-		$search_col->add_child( new RawNode( self::raw_widget( 'fibosearch', array( 'placeholder' => 'Search products...' ), 'ef_header_fibosearch' ) ) );
+		$search_col->add_child( new RawNode( RawNode::raw_widget( 'fibosearch', array( 'placeholder' => 'Search products...' ), 'ef_header_fibosearch' ) ) );
 		$row->add_child( $search_col );
 
 		// Account / wishlist / cart column (right aligned).
@@ -127,8 +127,8 @@ final class EcommerceHeader {
 			)
 		);
 		$actions_col->add_child( TextEditor::create( 'Welcome, Guest' ) );
-		$actions_col->add_child( new RawNode( self::raw_widget( 'woocommerce-menu-cart', array( 'show_subtotal' => 'yes', 'icon' => 'cart' ), 'ef_header_wishlist' ) ) );
-		$actions_col->add_child( new RawNode( self::raw_widget( 'woocommerce-menu-cart', array( 'show_subtotal' => 'yes' ), 'ef_header_cart' ) ) );
+		$actions_col->add_child( new RawNode( RawNode::raw_widget( 'woocommerce-menu-cart', array( 'show_subtotal' => 'yes', 'icon' => 'cart' ), 'ef_header_wishlist' ) ) );
+		$actions_col->add_child( new RawNode( RawNode::raw_widget( 'woocommerce-menu-cart', array( 'show_subtotal' => 'yes' ), 'ef_header_cart' ) ) );
 		$row->add_child( $actions_col );
 
 		return $row;
@@ -151,7 +151,7 @@ final class EcommerceHeader {
 				'_ef_slot'         => 'ecommerce_header_desktop_nav',
 			)
 		);
-		$row->add_child( new RawNode( self::raw_widget( 'nav-menu', array( 'menu' => 'primary', 'layout' => 'horizontal' ), 'ef_header_primary_nav' ) ) );
+		$row->add_child( new RawNode( RawNode::raw_widget( 'nav-menu', array( 'menu' => 'primary', 'layout' => 'horizontal' ), 'ef_header_primary_nav' ) ) );
 		return $row;
 	}
 
@@ -192,13 +192,13 @@ final class EcommerceHeader {
 				'_flex_size'       => '0 0 auto',
 			)
 		);
-		$icons_col->add_child( new RawNode( self::raw_widget( 'woocommerce-menu-cart', array(), 'ef_header_mobile_cart' ) ) );
+		$icons_col->add_child( new RawNode( RawNode::raw_widget( 'woocommerce-menu-cart', array(), 'ef_header_mobile_cart' ) ) );
 		$top_row->add_child( $icons_col );
 		$wrapper->add_child( $top_row );
 
 		// Hero carousel slot (below logo, above fold).
 		$carousel_row = new Container( array( 'content_width' => 'full', '_ef_slot' => 'ecommerce_header_mobile_carousel' ) );
-		$carousel_row->add_child( new RawNode( self::raw_widget( 'nested-carousel', array( 'auto_play' => 'yes', 'autoplay_speed' => 5000 ), 'ef_header_mobile_carousel' ) ) );
+		$carousel_row->add_child( new RawNode( RawNode::raw_widget( 'nested-carousel', array( 'auto_play' => 'yes', 'autoplay_speed' => 5000 ), 'ef_header_mobile_carousel' ) ) );
 		$wrapper->add_child( $carousel_row );
 
 		return $wrapper;
@@ -251,22 +251,4 @@ final class EcommerceHeader {
 		return $bar;
 	}
 
-	/**
-	 * Raw widget factory for widgets Forge's emitter does not natively model
-	 * (nav-menu, woocommerce-menu-cart, fibosearch, nested-carousel with
-	 * non-default settings).
-	 *
-	 * @param array<string, mixed> $settings
-	 * @return array<string, mixed>
-	 */
-	private static function raw_widget( string $widget_type, array $settings, string $id ): array {
-		return array(
-			'id'         => $id,
-			'settings'   => (object) $settings,
-			'elements'   => array(),
-			'isInner'    => false,
-			'widgetType' => $widget_type,
-			'elType'     => 'widget',
-		);
-	}
 }

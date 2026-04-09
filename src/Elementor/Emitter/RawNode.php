@@ -44,4 +44,27 @@ final class RawNode extends Node {
 	public function to_array(): array {
 		return $this->raw;
 	}
+
+	/**
+	 * Build a minimal Elementor widget element array for a widget type the
+	 * Forge emitter does not natively model (WooCommerce widgets, nav-menu,
+	 * fibosearch, etc.). Shared by every caller that needs to wrap a non-core
+	 * widget in a {@see RawNode} — keeps the "minimum shape Elementor will
+	 * render" contract in one place. The `settings` field is cast to
+	 * `stdClass` because Elementor round-trips empty settings as `{}` and an
+	 * empty PHP array would encode as `[]`, which breaks the editor.
+	 *
+	 * @param array<string, mixed> $settings
+	 * @return array<string, mixed>
+	 */
+	public static function raw_widget( string $widget_type, array $settings = array(), ?string $id = null ): array {
+		return array(
+			'id'         => $id ?? '',
+			'settings'   => (object) $settings,
+			'elements'   => array(),
+			'isInner'    => false,
+			'widgetType' => $widget_type,
+			'elType'     => 'widget',
+		);
+	}
 }

@@ -153,7 +153,7 @@ final class WooCommerce {
 	 *     wc_templates_installed: int,
 	 *     wc_templates_total: int,
 	 *     wc_templates_fully_installed: bool,
-	 *     fibosearch: array{detected:bool, version:string, option_exists:bool, in_sync:bool, keys_present:int},
+	 *     fibosearch: array{detected:bool, version:string, option_exists:bool, has_been_applied:bool, keys_present:int},
 	 *     header_variant_active: string
 	 * }
 	 */

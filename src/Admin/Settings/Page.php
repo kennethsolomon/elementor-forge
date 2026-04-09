@@ -189,8 +189,8 @@ final class Page {
 					<td><?php echo $report['fibosearch']['detected'] ? 'Yes (' . esc_html( $report['fibosearch']['version'] ) . ')' : 'No'; ?></td>
 				</tr>
 				<tr>
-					<th><?php echo esc_html__( 'Fibosearch settings in sync', 'elementor-forge' ); ?></th>
-					<td><?php echo $report['fibosearch']['in_sync'] ? 'Yes' : 'No'; ?></td>
+					<th><?php echo esc_html__( 'Fibosearch defaults applied', 'elementor-forge' ); ?></th>
+					<td><?php echo $report['fibosearch']['has_been_applied'] ? 'Yes' : 'No'; ?></td>
 				</tr>
 				<tr>
 					<th><?php echo esc_html__( 'Header variant active', 'elementor-forge' ); ?></th>

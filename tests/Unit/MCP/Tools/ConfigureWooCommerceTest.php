@@ -173,4 +173,77 @@ final class ConfigureWooCommerceTest extends TestCase {
 		// current_user_can is stubbed to return true in setUp.
 		$this->assertTrue( ConfigureWooCommerce::permission() );
 	}
+
+	/**
+	 * Regression guard for the MCP idempotency invariant: calling execute()
+	 * twice in a row must not create duplicate posts, must not re-apply
+	 * Fibosearch defaults that are already present, and must return the
+	 * same header post id both times. Covers the Testa HIGH finding from
+	 * the Phase 2 Layer 2 review.
+	 */
+	public function test_execute_twice_is_idempotent(): void {
+		require_once __DIR__ . '/../../WooCommerce/wc-stub.php';
+
+		// Fibosearch presence stub — Configurator::is_available() feature-detects
+		// via function_exists('dgwt_wcas'), so we declare it via Brain Monkey to
+		// exercise the "Fibosearch present" code path on both runs.
+		if ( ! function_exists( 'dgwt_wcas' ) ) {
+			Functions\when( 'dgwt_wcas' )->justReturn( null );
+		}
+
+		// First run — fresh install.
+		$insert_id_before_first = $this->next_insert_id;
+		$first                  = ConfigureWooCommerce::execute( array() );
+		$inserts_on_first_run   = $this->next_insert_id - $insert_id_before_first;
+
+		$this->assertIsArray( $first );
+		$this->assertSame( 'installed', $first['templates']['status'] );
+		$this->assertNotEmpty( $first['templates']['installed'] );
+		$this->assertSame( 'applied', $first['fibosearch']['status'] );
+		$this->assertNotEmpty( $first['fibosearch']['keys_updated'] );
+		$this->assertSame( 'installed', $first['header']['status'] );
+		$this->assertGreaterThan( 0, $first['header']['post_id'] );
+		$this->assertGreaterThan( 0, $inserts_on_first_run, 'First run must insert at least one post.' );
+
+		$first_template_ids = $first['templates']['installed'];
+		$first_header_id    = $first['header']['post_id'];
+
+		// Second run — everything already in place.
+		$insert_id_before_second = $this->next_insert_id;
+		$second                  = ConfigureWooCommerce::execute( array() );
+		$inserts_on_second_run   = $this->next_insert_id - $insert_id_before_second;
+
+		// ZERO new inserts — this is the idempotency contract.
+		$this->assertSame(
+			0,
+			$inserts_on_second_run,
+			'Second run must not create duplicate posts — insert delta was ' . $inserts_on_second_run . '.'
+		);
+
+		// Templates: same post ids, no duplicates.
+		$this->assertSame(
+			$first_template_ids,
+			$second['templates']['installed'],
+			'Second run must return the same template post ids as the first run.'
+		);
+
+		// Fibosearch: all default keys already present → keys_updated is empty.
+		$this->assertSame( 'applied', $second['fibosearch']['status'] );
+		$this->assertSame(
+			array(),
+			$second['fibosearch']['keys_updated'],
+			'Second run must not rewrite any Fibosearch keys — all defaults already present.'
+		);
+		$this->assertNotEmpty(
+			$second['fibosearch']['keys_preserved'],
+			'Second run must report all default keys as preserved.'
+		);
+
+		// Header: same post id, slot reused.
+		$this->assertSame(
+			$first_header_id,
+			$second['header']['post_id'],
+			'Second run must return the same header post id as the first run (slot reused).'
+		);
+	}
 }
