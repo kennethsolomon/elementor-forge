@@ -276,5 +276,4 @@ final class Templates {
 			)
 		);
 	}
-
 }

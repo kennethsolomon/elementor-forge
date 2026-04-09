@@ -63,3 +63,90 @@ if ( ! class_exists( 'WP_Error' ) ) {
 		}
 	}
 }
+
+// $wpdb stub — only declares the surface SliderRepository depends on so unit
+// tests can instantiate the repository against a fake. Real WP integration
+// tests use the real wpdb via wp-env. Constants ARRAY_A / OBJECT mirror WP.
+if ( ! defined( 'ARRAY_A' ) ) {
+	define( 'ARRAY_A', 'ARRAY_A' );
+}
+if ( ! defined( 'OBJECT' ) ) {
+	define( 'OBJECT', 'OBJECT' );
+}
+if ( ! class_exists( 'wpdb' ) ) {
+	class wpdb { // phpcs:ignore Generic.Classes.OpeningBraceSameLine
+		/** @var string */
+		public $prefix = 'wp_';
+		/** @var string */
+		public $last_error = '';
+		/** @var int */
+		public $insert_id = 0;
+		/** @var array<int, array{table:string, data:array, formats:array}> */
+		public $inserts = array();
+		/** @var array<int, array{table:string, data:array, where:array, formats:array, where_formats:array}> */
+		public $updates = array();
+		/** @var array<int, array{table:string, where:array, formats:array}> */
+		public $deletes = array();
+		/** @var array<int, string> */
+		public $queries = array();
+		/** @var int|false */
+		public $next_insert_id = 1;
+		/** @var int|false */
+		public $insert_return = 1;
+		/** @var int|false */
+		public $update_return = 1;
+		/** @var int|false */
+		public $delete_return = 1;
+		/** @var array<string, mixed>|null */
+		public $row_return = null;
+		/** @var array<int, array<string, mixed>>|null */
+		public $results_return = null;
+		/** @var mixed */
+		public $var_return = 0;
+
+		public function prepare( string $query, ...$args ): string {
+			return $query . '|' . implode( ',', array_map( 'strval', $args ) );
+		}
+
+		public function insert( string $table, array $data, $formats = null ) {
+			$this->inserts[] = array( 'table' => $table, 'data' => $data, 'formats' => is_array( $formats ) ? $formats : array() );
+			if ( false === $this->insert_return ) {
+				return false;
+			}
+			$this->insert_id = is_int( $this->next_insert_id ) ? $this->next_insert_id : 1;
+			++$this->next_insert_id;
+			return $this->insert_return;
+		}
+
+		public function update( string $table, array $data, array $where, $formats = null, $where_formats = null ) {
+			$this->updates[] = array(
+				'table'         => $table,
+				'data'          => $data,
+				'where'         => $where,
+				'formats'       => is_array( $formats ) ? $formats : array(),
+				'where_formats' => is_array( $where_formats ) ? $where_formats : array(),
+			);
+			return $this->update_return;
+		}
+
+		public function delete( string $table, array $where, $formats = null ) {
+			$this->deletes[] = array( 'table' => $table, 'where' => $where, 'formats' => is_array( $formats ) ? $formats : array() );
+			return $this->delete_return;
+		}
+
+		public function get_row( string $query, $output = ARRAY_A ) {
+			$this->queries[] = $query;
+			return $this->row_return;
+		}
+
+		public function get_results( string $query, $output = ARRAY_A ) {
+			$this->queries[] = $query;
+			return $this->results_return;
+		}
+
+		public function get_var( string $query ) {
+			$this->queries[] = $query;
+			return $this->var_return;
+		}
+	}
+}

@@ -250,5 +250,4 @@ final class EcommerceHeader {
 
 		return $bar;
 	}
-
 }

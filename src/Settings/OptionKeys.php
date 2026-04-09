@@ -19,6 +19,7 @@ final class OptionKeys {
 	public const ACTIVATED_AT = 'elementor_forge_activated_at';
 	public const SETTINGS = 'elementor_forge_settings';
 	public const SCHEMA_VERSION = 'elementor_forge_schema_version';
+	public const SS3_CACHE_DIRTY = 'elementor_forge_ss3_cache_dirty';
 
 	/**
 	 * Return every option key the plugin writes.
@@ -31,6 +32,7 @@ final class OptionKeys {
 			self::ACTIVATED_AT,
 			self::SETTINGS,
 			self::SCHEMA_VERSION,
+			self::SS3_CACHE_DIRTY,
 		);
 	}
 }

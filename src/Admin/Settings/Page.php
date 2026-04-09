@@ -9,9 +9,11 @@ declare(strict_types=1);
 
 namespace ElementorForge\Admin\Settings;
 
+use ElementorForge\Intelligence\LayoutJudge\LayoutJudge;
 use ElementorForge\Settings\Defaults;
 use ElementorForge\Settings\OptionKeys;
 use ElementorForge\Settings\Store;
+use ElementorForge\SmartSlider\SliderRepository;
 use ElementorForge\WooCommerce\WooCommerce;
 
 /**
@@ -151,6 +153,9 @@ final class Page {
 			<?php $this->render_woocommerce_section(); ?>
 
 			<hr />
+			<?php $this->render_intelligence_section(); ?>
+
+			<hr />
 			<h2><?php echo esc_html__( 'Debug', 'elementor-forge' ); ?></h2>
 			<?php
 			$debug_json = wp_json_encode( $settings, JSON_PRETTY_PRINT );
@@ -215,6 +220,66 @@ final class Page {
 				<?php submit_button( esc_html__( 'Switch header to ecommerce', 'elementor-forge' ), 'secondary', 'submit', false ); ?>
 			</form>
 		</p>
+		<?php
+	}
+
+	/**
+	 * Render the Intelligence Layer sub-section — surfaces LayoutJudge rule
+	 * count, Smart Slider 3 detection status, and the most recent bulk
+	 * generate job status (read from the transient log).
+	 */
+	private function render_intelligence_section(): void {
+		$judge = LayoutJudge::with_default_rules();
+
+		$ss3_present = defined( 'NEXTEND_SMARTSLIDER_3_URL_PATH' );
+		$ss3_version = '';
+		$ss3_supported = false;
+		if ( $ss3_present ) {
+			global $wpdb;
+			if ( isset( $wpdb ) ) {
+				$repo          = new SliderRepository( $wpdb );
+				$ss3_version   = $repo->detect_version();
+				$ss3_supported = $repo->is_available();
+			}
+		}
+
+		$cache_dirty = (bool) get_option( OptionKeys::SS3_CACHE_DIRTY, false );
+		?>
+		<h2><?php echo esc_html__( 'Intelligence Layer', 'elementor-forge' ); ?></h2>
+		<table class="widefat striped" style="max-width:700px">
+			<tbody>
+				<tr>
+					<th><?php echo esc_html__( 'Layout judge rules loaded', 'elementor-forge' ); ?></th>
+					<td><?php echo esc_html( (string) $judge->rule_count() ); ?></td>
+				</tr>
+				<tr>
+					<th><?php echo esc_html__( 'Smart Slider 3 detected', 'elementor-forge' ); ?></th>
+					<td><?php echo $ss3_present ? 'Yes' : 'No'; ?></td>
+				</tr>
+				<tr>
+					<th><?php echo esc_html__( 'Smart Slider 3 version', 'elementor-forge' ); ?></th>
+					<td><?php echo esc_html( '' === $ss3_version ? 'unknown' : $ss3_version ); ?></td>
+				</tr>
+				<tr>
+					<th><?php echo esc_html__( 'Smart Slider 3 supported', 'elementor-forge' ); ?></th>
+					<td>
+						<?php
+						if ( $ss3_supported ) {
+							echo 'Yes';
+						} elseif ( $ss3_present ) {
+							echo esc_html( sprintf( 'No — outside %s..<%s', SliderRepository::SUPPORTED_MIN, SliderRepository::SUPPORTED_MAX ) );
+						} else {
+							echo 'N/A';
+						}
+						?>
+					</td>
+				</tr>
+				<tr>
+					<th><?php echo esc_html__( 'Smart Slider cache flag', 'elementor-forge' ); ?></th>
+					<td><?php echo $cache_dirty ? esc_html__( 'Dirty — clear from Smart Slider admin', 'elementor-forge' ) : esc_html__( 'Clean', 'elementor-forge' ); ?></td>
+				</tr>
+			</tbody>
+		</table>
 		<?php
 	}
 

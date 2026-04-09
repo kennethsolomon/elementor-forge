@@ -9,6 +9,7 @@ use ElementorForge\MCP\Tools\ApplyTemplate;
 use ElementorForge\MCP\Tools\BulkGenerate;
 use ElementorForge\MCP\Tools\ConfigureWooCommerce;
 use ElementorForge\MCP\Tools\CreatePage;
+use ElementorForge\MCP\Tools\ManageSlider;
 use PHPUnit\Framework\TestCase;
 
 final class ToolsSchemaTest extends TestCase {
@@ -43,5 +44,20 @@ final class ToolsSchemaTest extends TestCase {
 		$this->assertSame( 'boolean', $schema['properties']['install_templates']['type'] );
 		$this->assertSame( 'boolean', $schema['properties']['apply_fibosearch']['type'] );
 		$this->assertSame( 'boolean', $schema['properties']['switch_header']['type'] );
+	}
+
+	public function test_manage_slider_schema_enumerates_actions(): void {
+		$schema = ManageSlider::input_schema();
+		$this->assertSame( 'object', $schema['type'] );
+		$this->assertContains( 'action', $schema['required'] );
+		$this->assertContains( 'create_slider', $schema['properties']['action']['enum'] );
+		$this->assertContains( 'list_sliders', $schema['properties']['action']['enum'] );
+	}
+
+	public function test_bulk_generate_schema_supports_matrix_and_dry_run(): void {
+		$schema = BulkGenerate::input_schema();
+		$this->assertArrayHasKey( 'multiply_by', $schema['properties'] );
+		$this->assertArrayHasKey( 'dry_run', $schema['properties'] );
+		$this->assertArrayHasKey( 'transactional', $schema['properties'] );
 	}
 }

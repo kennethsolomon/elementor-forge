@@ -24,10 +24,26 @@ $elementor_forge_options = array(
 	'elementor_forge_settings',
 	'elementor_forge_schema_version',
 	'elementor_forge_onboarding_complete',
+	'elementor_forge_ss3_cache_dirty',
 );
 foreach ( $elementor_forge_options as $key ) {
 	delete_option( $key );
 	delete_site_option( $key );
+}
+
+// Purge any leftover bulk-generate progress transients written by
+// ElementorForge\MCP\Tools\BulkGenerate. Transients use the elementor_forge_bulk_
+// prefix so a single LIKE delete cleans them up.
+global $wpdb;
+if ( isset( $wpdb ) ) {
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	$wpdb->query(
+		$wpdb->prepare(
+			"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
+			$wpdb->esc_like( '_transient_elementor_forge_bulk_' ) . '%',
+			$wpdb->esc_like( '_transient_timeout_elementor_forge_bulk_' ) . '%'
+		)
+	);
 }
 
 // Remove every post of our CPTs and any associated meta/terms.

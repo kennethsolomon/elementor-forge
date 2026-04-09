@@ -32,6 +32,13 @@ final class ToolsExecuteTest extends TestCase {
 				return array_merge( $defaults, is_array( $args ) ? $args : array() );
 			}
 		);
+		Functions\when( 'wp_suspend_cache_addition' )->justReturn( false );
+		Functions\when( 'wp_defer_term_counting' )->justReturn( false );
+		Functions\when( 'set_transient' )->justReturn( true );
+		Functions\when( 'get_transient' )->justReturn( false );
+		if ( ! defined( 'HOUR_IN_SECONDS' ) ) {
+			define( 'HOUR_IN_SECONDS', 3600 );
+		}
 	}
 
 	protected function tearDown(): void {
@@ -65,8 +72,9 @@ final class ToolsExecuteTest extends TestCase {
 
 		$result = BulkGenerate::execute(
 			array(
-				'cpt'   => 'ef_location',
-				'items' => array(
+				'cpt'           => 'ef_location',
+				'transactional' => false,
+				'items'         => array(
 					array( 'title' => 'Location One' ),
 					array( 'title' => 'Location Two' ),
 				),
@@ -78,5 +86,7 @@ final class ToolsExecuteTest extends TestCase {
 		$this->assertCount( 1, $result['failed'] );
 		$this->assertSame( 101, $result['created'][0]['post_id'] );
 		$this->assertSame( 'Location Two', $result['failed'][0]['title'] );
+		$this->assertFalse( $result['rolled_back'] );
+		$this->assertFalse( $result['transactional'] );
 	}
 }

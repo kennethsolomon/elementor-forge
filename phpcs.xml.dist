@@ -97,4 +97,19 @@
     <rule ref="WordPress.WP.AlternativeFunctions.file_system_operations_fwrite">
         <exclude-pattern>tests/*</exclude-pattern>
     </rule>
+    <!-- Bootstrap stubs WP core classes (WP_Error, wpdb) so unit tests can run without WP loaded.
+         The wpdb stub class name is mandatory — it has to match WP's class exactly. The
+         multiple-class-per-file warning fires for the same structural reason. -->
+    <rule ref="Generic.Files.OneObjectStructurePerFile.MultipleFound">
+        <exclude-pattern>tests/bootstrap.php</exclude-pattern>
+    </rule>
+    <rule ref="PEAR.NamingConventions.ValidClassName.StartWithCapital">
+        <exclude-pattern>tests/bootstrap.php</exclude-pattern>
+    </rule>
+    <rule ref="WordPress.WP.AlternativeFunctions.json_encode_json_encode">
+        <exclude-pattern>tests/*</exclude-pattern>
+    </rule>
+    <rule ref="Generic.CodeAnalysis.UnusedFunctionParameter">
+        <exclude-pattern>tests/bootstrap.php</exclude-pattern>
+    </rule>
 </ruleset>

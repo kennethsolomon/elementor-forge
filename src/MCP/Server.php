@@ -35,6 +35,7 @@ final class Server {
 	public const ABILITY_APPLY_TEMPLATE         = 'elementor-forge/apply-template';
 	public const ABILITY_BULK_GENERATE          = 'elementor-forge/bulk-generate-pages';
 	public const ABILITY_CONFIGURE_WOOCOMMERCE  = 'elementor-forge/configure-woocommerce';
+	public const ABILITY_MANAGE_SLIDER          = 'elementor-forge/manage-slider';
 
 	public const SERVER_ID        = 'elementor-forge';
 	public const REST_NAMESPACE   = 'elementor-forge/v1';
@@ -152,6 +153,23 @@ final class Server {
 				),
 			)
 		);
+
+		wp_register_ability(
+			self::ABILITY_MANAGE_SLIDER,
+			array(
+				'label'               => 'Manage Smart Slider',
+				'description'         => 'CRUD against Smart Slider 3 Free. Single tool, multi-action: create_slider, update_slider, get_slider, delete_slider, add_slide, update_slide, delete_slide, list_sliders. Throws if Smart Slider 3 is missing or out of supported version range.',
+				'category'            => self::CATEGORY,
+				'input_schema'        => Tools\ManageSlider::input_schema(),
+				'output_schema'       => Tools\ManageSlider::output_schema(),
+				'execute_callback'    => array( Tools\ManageSlider::class, 'execute' ),
+				'permission_callback' => array( Tools\ManageSlider::class, 'permission' ),
+				'meta'                => array(
+					'annotations'  => array( 'destructive' => true, 'idempotent' => false ),
+					'show_in_rest' => false,
+				),
+			)
+		);
 	}
 
 	public function register_server( McpAdapter $adapter ): void {
@@ -171,6 +189,7 @@ final class Server {
 				self::ABILITY_APPLY_TEMPLATE,
 				self::ABILITY_BULK_GENERATE,
 				self::ABILITY_CONFIGURE_WOOCOMMERCE,
+				self::ABILITY_MANAGE_SLIDER,
 			),
 			array(),
 			array(),
