@@ -2,16 +2,17 @@
 
 WordPress plugin + MCP server that turns structured content documents into fully-built Elementor Pro pages.
 
-**Status:** Phase 0 scaffolding complete. Phase 1 in progress. See `brain.db` project id `3`.
+**Status:** Phase 1 complete. Phase 2 pending. See `brain.db` project id `3`.
 
 ## What it does
 
-- Emits valid Elementor JSON v0.4 from content documents (no legacy section/column; containers + widgets only)
-- Onboarding wizard: detects theme, syncs Kit settings, installs a base template library, registers Locations + Services CPTs, creates Theme Builder Singles wired to ACF dynamic tags
-- Ships a service-business Theme Builder Header and Footer; ecommerce variant (bottom tab bar) available via setting
-- WooCommerce Theme Builder templates (Shop, Single Product, Cart, Checkout) in Phase 2
-- Semantic layout judge + Smart Slider 3 Free CRUD + bulk page generation in Phase 3
-- Exposes an MCP server (via `wordpress/mcp-adapter` + `wordpress/abilities-api`) so Claude Code can remote-drive the builder
+- **Elementor JSON Emitter (v0.4).** Pure PHP generator for Elementor's flexbox container schema. 14 widget types: heading, text-editor, button, divider, spacer, icon, icon-box, image, image-carousel, nested-carousel, nested-accordion, google_maps, `template` references, and CF7 `shortcode`. Containers nest up to 7 levels. Round-trip Parser preserves unknown widgets (including `ucaddon_*`) byte-identical via a `RawNode` shim.
+- **4 Custom Post Types.** `ef_location`, `ef_service`, and the two Theme Builder library surfaces.
+- **Theme Builder templates.** Two Singles (Location, Service) wired to ACF dynamic tags, plus a service-business Header and Footer. All installed idempotently by a single-query scan (`prime_type_map`) so reinstalls update in place instead of duplicating.
+- **12 reusable section templates.** hero, trust strip, service cards, FAQ, CTA, testimonials, process steps, service area list, location cards, contact form, map+hours, footer CTA — all built from the same emitter primitives the MCP tools use.
+- **Onboarding wizard.** `Elementor Forge > Setup` auto-installs the curated dependency allowlist (Elementor, ACF, CF7, Smart Slider 3, WooCommerce, FiboSearch) from wp.org, registers ACF field groups for the active `acf_mode`, and installs every Theme Builder template + section template in a single pass.
+- **Admin Settings page with 4 toggles.** `acf_mode`, `ucaddon_shim`, `mcp_server`, `header_pattern` — all persisted as plugin options with sane defaults.
+- **MCP server with 4 tools.** `emit_page`, `apply_template`, `add_section`, `list_templates` — exposed as MCP Abilities so Claude Code can remote-drive the builder. Transport via `wordpress/mcp-adapter` against an internal Abilities shim (see `src/MCP/README.md`).
 
 ## Stack constraints
 

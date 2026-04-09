@@ -37,8 +37,22 @@ final class Wizard {
 	public const NONCE_FIELD     = 'elementor_forge_wizard_nonce';
 	public const ACTION_SLUG     = 'elementor_forge_wizard_step';
 
+	/** @var PluginInstallerInterface|null */
+	private ?PluginInstallerInterface $installer;
+
+	public function __construct( ?PluginInstallerInterface $installer = null ) {
+		$this->installer = $installer;
+	}
+
 	public function boot(): void {
 		add_action( 'admin_post_' . self::ACTION_SLUG, array( $this, 'handle_step' ) );
+	}
+
+	private function installer(): PluginInstallerInterface {
+		if ( null === $this->installer ) {
+			$this->installer = new PluginInstaller();
+		}
+		return $this->installer;
 	}
 
 	public static function is_complete(): bool {
@@ -182,9 +196,9 @@ final class Wizard {
 
 		switch ( $step ) {
 			case 'install_dependency':
-				$slug = isset( $_POST['dependency_slug'] ) ? sanitize_key( (string) $_POST['dependency_slug'] ) : '';
-				$file = isset( $_POST['dependency_file'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['dependency_file'] ) ) : '';
-				$result = ( new PluginInstaller() )->install_and_activate( $slug, $file );
+				$slug   = isset( $_POST['dependency_slug'] ) ? sanitize_key( (string) $_POST['dependency_slug'] ) : '';
+				$file   = isset( $_POST['dependency_file'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['dependency_file'] ) ) : '';
+				$result = $this->install_dependency( $slug, $file );
 				$this->redirect_with_result( 'dependencies', $result, 'Installed ' . $slug );
 				return;
 
@@ -208,6 +222,41 @@ final class Wizard {
 
 		wp_safe_redirect( admin_url( 'admin.php?page=elementor-forge-setup' ) );
 		exit;
+	}
+
+	/**
+	 * Install a wp.org dependency after gating it through the curated allowlist.
+	 *
+	 * Pure enough to unit-test: the only side effects it performs come from the
+	 * injected {@see PluginInstaller}, which tests replace with a mock. Every
+	 * path returns either `true` or a {@see WP_Error} so the caller can
+	 * surface the outcome to the wizard UI.
+	 *
+	 * @return true|WP_Error
+	 */
+	public function install_dependency( string $slug, string $file ) {
+		if ( '' === $slug || '' === $file ) {
+			return new WP_Error(
+				'elementor_forge_dep_missing_params',
+				'Dependency slug and file are required.'
+			);
+		}
+
+		$entry = Dependencies::find( $slug, $file );
+		if ( null === $entry ) {
+			return new WP_Error(
+				'elementor_forge_dep_not_allowlisted',
+				sprintf( 'Plugin "%s" is not in the Elementor Forge dependency allowlist.', $slug )
+			);
+		}
+		if ( ! $entry['auto_install'] ) {
+			return new WP_Error(
+				'elementor_forge_dep_manual_only',
+				sprintf( 'Plugin "%s" cannot be auto-installed — upload required.', $slug )
+			);
+		}
+
+		return $this->installer()->install_and_activate( $entry['slug'], $entry['file'] );
 	}
 
 	/**

@@ -21,7 +21,7 @@ use WP_Error;
  * message to the user and lets them retry without rolling the whole wizard
  * back.
  */
-final class PluginInstaller {
+final class PluginInstaller implements PluginInstallerInterface {
 
 	/**
 	 * Install a plugin from wp.org and activate it.

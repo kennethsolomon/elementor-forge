@@ -26,6 +26,25 @@ namespace ElementorForge\Onboarding;
 final class Dependencies {
 
 	/**
+	 * Look up an allowlist entry by wp.org slug. Returns null when the slug is
+	 * not in the curated catalog — callers MUST treat that as a hard rejection
+	 * and refuse the install. Also rejects when the caller-supplied plugin
+	 * file path does not match the allowlist row exactly; this prevents a
+	 * `manage_options` user from aiming the installer at an arbitrary file
+	 * name even for a valid slug.
+	 *
+	 * @return array{slug:string, file:string, label:string, required:bool, auto_install:bool, conditional_on?:string}|null
+	 */
+	public static function find( string $slug, string $file ): ?array {
+		foreach ( self::all() as $row ) {
+			if ( $row['slug'] === $slug && $row['file'] === $file ) {
+				return $row;
+			}
+		}
+		return null;
+	}
+
+	/**
 	 * @return list<array{slug:string, file:string, label:string, required:bool, auto_install:bool, conditional_on?:string}>
 	 */
 	public static function all(): array {
