@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace ElementorForge\MCP\Tools;
 
 use ElementorForge\CPT\PostTypes;
+use ElementorForge\Safety\Gate;
 use WP_Error;
 
 /**
@@ -125,6 +126,11 @@ final class BulkGenerate {
 	 * @return array<string, mixed>|WP_Error
 	 */
 	public static function execute( array $input ) {
+		$gate = Gate::check( 'bulk_generate_pages', Gate::ACTION_CREATE );
+		if ( is_wp_error( $gate ) ) {
+			return $gate;
+		}
+
 		$cpt = isset( $input['cpt'] ) && is_string( $input['cpt'] ) ? $input['cpt'] : '';
 		if ( ! in_array( $cpt, array( PostTypes::LOCATION, PostTypes::SERVICE ), true ) ) {
 			return new WP_Error( 'elementor_forge_invalid_cpt', 'Invalid cpt.' );

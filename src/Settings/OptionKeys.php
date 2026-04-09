@@ -22,6 +22,15 @@ final class OptionKeys {
 	public const SS3_CACHE_DIRTY = 'elementor_forge_ss3_cache_dirty';
 
 	/**
+	 * Safety sub-setting keys stored inside the SETTINGS option array.
+	 * These are NOT top-level WP options — they live inside the plugin
+	 * settings row so they share the Settings API pipeline with the other
+	 * four toggles.
+	 */
+	public const SAFETY_MODE             = 'safety_mode';
+	public const SAFETY_ALLOWED_POST_IDS = 'safety_allowed_post_ids';
+
+	/**
 	 * Return every option key the plugin writes.
 	 *
 	 * @return list<string>

@@ -36,6 +36,15 @@ final class ToolsExecuteTest extends TestCase {
 		Functions\when( 'wp_defer_term_counting' )->justReturn( false );
 		Functions\when( 'set_transient' )->justReturn( true );
 		Functions\when( 'get_transient' )->justReturn( false );
+		// Safety gate stub — every tool execute() now calls Gate::check()
+		// which reads the plugin settings option. Default to full scope mode
+		// so these happy/failure path tests behave as they did pre-gate.
+		Functions\when( 'get_option' )->justReturn(
+			array(
+				'safety_mode'             => 'full',
+				'safety_allowed_post_ids' => '',
+			)
+		);
 		if ( ! defined( 'HOUR_IN_SECONDS' ) ) {
 			define( 'HOUR_IN_SECONDS', 3600 );
 		}

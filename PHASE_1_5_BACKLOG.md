@@ -77,3 +77,42 @@ Ordering inside each dimension is rough priority within that dimension, not a st
 24. **PHPStan 2.x upgrade.** PHPStan 2.0 adds level 10, list types, `@phpstan-pure` enforcement, and uses 50-70% less memory. Package is pinned to `^1.11` and upgrade requires a config migration. Hux has been ignoring the "Tell the user PHPStan 2.x is available" nag message on every run since Phase 2; noise instances 1-7 acknowledged across the three phases.
 25. **CI matrix — PHP 8.0, 8.1, 8.2, 8.3, 8.4 × WP 6.4, 6.5, 6.6, 6.7, 6.8 × Elementor 3.20, 3.25, 3.30.** Currently only PHP 8.4 + WP 6.5 + Elementor 3.20 is exercised locally. Full matrix should land in Phase 1.5 via GitHub Actions.
 26. **Strauss or php-scoper dependency prefixing.** `wordpress/mcp-adapter` ships under its own namespace, which is fine today but will conflict with any other plugin that ships the same dep once Forge hits 1000+ installs. Should be prefixed via Strauss before first public release.
+
+## Emitter gaps surfaced by Pix — 2026-04-09 (Harbor Bay landing page restyle)
+
+27. **Container width — `_inline_size` integer does not render.** Writing `'_inline_size' => 23` on a child container has no effect in modern Flexbox Container mode — Elementor ignores the value and leaves `flex-basis: auto`, so children stack full-width instead of forming a row. The working control is the `width` dimension with a unit object: `'width' => ['unit' => '%', 'size' => 23]`. Pix worked around this by writing `width` + `width_tablet` + `width_mobile` directly on every child container (trust badges, service cards, process steps, footer columns, hero split). Forge's emitter for `card_grid`, `row`, and `hero_split` primitives should emit the `width` control instead of `_inline_size`, with responsive breakpoints built in. Desired output JSON per column:
+    ```json
+    {
+      "elType": "container",
+      "settings": {
+        "width": { "unit": "%", "size": 23 },
+        "width_tablet": { "unit": "%", "size": 48 },
+        "width_mobile": { "unit": "%", "size": 100 },
+        "content_width": "full"
+      }
+    }
+    ```
+    Without this fix, any multi-column layout emitted by Forge will render as a vertical stack on the frontend even though the Elementor editor may show it correctly. Hux should also add a CI smoke test that renders a `card_grid` to a real wp-env frontend and asserts column widths via Playwright, not just JSON shape.
+
+28. **Hero emitter has no background default.** The `hero` block emits with `background_background: undefined`, which leaves the hero transparent on top of the page background (usually white). Pix had to add a gradient `background_background: 'gradient'` + two color stops + angle directly in the JSON. Forge should either (a) ship a default dark-navy gradient on the `hero` block, (b) require a `background` prop at schema validation time, or (c) provide a `hero_variant` enum (`dark-gradient`, `hero-image`, `split-dark`) that sets the background + text colors in one switch. The current "silent transparent" default produces unreadable hero sections every time.
+
+29. **Installer Header/Footer templates ship empty shells.** The `create_page` + `Installer` flow leaves post 9 (Header) and post 10 (Footer) with empty `_elementor_data` arrays, so visiting any front-end page before a designer fills them in shows a blank theme header/footer on top of the Elementor content. Forge should ship default Header/Footer templates with at least a minimal layout (logo + nav + CTA for header; 3-col footer + copyright for footer) using the Kit Global colors. A designer can then restyle, but the page is never visually broken out of the box.
+
+30. **Theme Builder conditions cache does not auto-regenerate after JSON writes.** After writing `_elementor_data` to a post that has active conditions (`include/general`), the theme builder conditions cache stays stale and the new content isn't rendered on the frontend until `\Elementor\Plugin::$instance->files_manager->clear_cache()` and `delete_option('elementor_pro_theme_builder_conditions_cache')` are called explicitly. Forge's write path (`create_page`, `apply_template`, `update_elementor_data`, etc.) should always clear both caches as the last step of the write, before returning success. Right now the caller has to remember — Pix had to add this to her tmp script manually, and the first render was using John's earlier version of the page.
+
+31. **`_wp_page_template` is not part of the `create_page` schema.** When using `apply_template` or `create_page`, the page template (`_wp_page_template`) is left at the theme default, which renders the Elementor content inside the theme's header/footer. That's usually what you want. But when a page is created as the landing page and needs to render with a full-width layout including Theme Builder header/footer (not theme chrome), the caller has to manually `update_post_meta($post_id, '_wp_page_template', 'elementor_header_footer')` after the fact. Forge should expose `page_template: 'default' | 'elementor_canvas' | 'elementor_header_footer'` as a first-class prop on `create_page` and set both `_wp_page_template` and `_elementor_template` in one step.
+
+32. **No built-in Kit Global palette + typography writer.** Pix had to update `_elementor_page_settings` on post 6 (Default Kit) manually to load the Harbor Bay brand palette into `system_colors`, `custom_colors`, `system_typography`, `h1_typography_*`, `button_*`, etc. This is 80+ lines of hand-written settings just to get the four brand colors into Kit Globals. Forge should ship a `set_kit_globals` MCP tool that accepts a `BrandPalette` struct (primary, secondary, text, accent, + font families + heading sizes + button style) and emits the correct `_elementor_page_settings` update. Every new client site needs this as step 1 — it should not require 80 lines of PHP.
+
+33. **`text-editor` widget is being abused to emit raw inline-styled HTML because icon-box, divider, and form widgets don't cover all cases.** Pix emitted every trust badge, footer contact list, footer service list, hero form card form, and copyright line as a `text-editor` widget with a raw HTML string. This works but kills accessibility (no proper heading hierarchy, no form labels associated via `<label for>`, inline styles that bypass the Kit Globals cascade, no hover states). Forge should add dedicated emitters for:
+    - `trust_badge_strip` — 4-column row of icon + text, rendered as `icon-box` widgets so they inherit Kit Global colors and Lighthouse sees real `<ul>`/`<li>` structure
+    - `contact_list` — phone/email/hours as a proper semantic list with icon widgets
+    - `footer_link_column` — heading + `<ul>` of links, not a text-editor with inline anchors
+    - `hero_form_card` — a container with a CF7 or Forms widget embedded, not a text-editor HTML mockup
+    Designers should never need to write inline-styled HTML for primitives that exist in every service business landing page.
+
+34. **Contrast validation is not part of Forge's write path.** Pix discovered post-render that white text on orange `#F19D3B` is 2.18:1 contrast (fails WCAG AA) even though that's the default CTA pairing in the Melbourne Painting Specialty reference and Forge's `service_business_kit`. Every page Forge emits with the default orange button + white text ships broken for accessibility. Forge should:
+    - Add a `validate_kit` step that runs `BrandPalette` pairings through a contrast check at write time
+    - Refuse to commit a Kit Global with a button pairing below 4.5:1 (body) or 3.0:1 (large, 18pt+ bold)
+    - Suggest the nearest-hue darker color when a validation fails (e.g., "Orange #F19D3B white text fails, use `#1A2940` navy text (6.71:1) or darken orange to `#B85F00` (4.49:1)")
+    This is a correctness gap (Cyra domain) more than an accessibility polish item — it's shipping broken defaults.

@@ -25,6 +25,16 @@ final class BulkGenerateTest extends TestCase {
 		Functions\when( 'wp_defer_term_counting' )->justReturn( false );
 		Functions\when( 'set_transient' )->justReturn( true );
 		Functions\when( 'get_transient' )->justReturn( false );
+		// Gate::check reads safety_mode from the settings option — default to
+		// full mode so pre-existing tests are not affected by the new safety
+		// gate. Tests that want page_only / read_only behavior stub this
+		// individually.
+		Functions\when( 'get_option' )->justReturn(
+			array(
+				'safety_mode'             => 'full',
+				'safety_allowed_post_ids' => '',
+			)
+		);
 		if ( ! defined( 'HOUR_IN_SECONDS' ) ) {
 			define( 'HOUR_IN_SECONDS', 3600 );
 		}

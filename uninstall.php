@@ -25,6 +25,8 @@ $elementor_forge_options = array(
 	'elementor_forge_schema_version',
 	'elementor_forge_onboarding_complete',
 	'elementor_forge_ss3_cache_dirty',
+	'elementor_forge_safety_mode',
+	'elementor_forge_safety_allowed_post_ids',
 );
 foreach ( $elementor_forge_options as $key ) {
 	delete_option( $key );

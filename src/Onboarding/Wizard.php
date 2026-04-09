@@ -13,6 +13,7 @@ use ElementorForge\ACF\Registrar as AcfRegistrar;
 use ElementorForge\Admin\Settings\Page as SettingsPage;
 use ElementorForge\Elementor\SectionLibrary;
 use ElementorForge\Elementor\ThemeBuilder\Installer as TemplatesInstaller;
+use ElementorForge\Safety\Gate;
 use WP_Error;
 
 /**
@@ -65,6 +66,17 @@ final class Wizard {
 	public static function render(): void {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
+		}
+
+		// Safety gate — the wizard is a site-wide operation (installs templates,
+		// registers CPTs, writes Theme Builder display conditions). It is only
+		// allowed in full scope mode.
+		if ( ! Gate::is_wizard_enabled() ) {
+			wp_die(
+				esc_html__( 'The onboarding wizard is disabled in page_only and read_only scope modes. Switch to full mode in Elementor Forge → Settings → Safety to run the wizard.', 'elementor-forge' ),
+				esc_html__( 'Wizard disabled', 'elementor-forge' ),
+				array( 'back_link' => true )
+			);
 		}
 
 		$step = isset( $_GET['step'] ) ? sanitize_key( (string) $_GET['step'] ) : 'welcome'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended

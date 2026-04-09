@@ -13,6 +13,7 @@ use ElementorForge\Elementor\Emitter\Document;
 use ElementorForge\Elementor\Emitter\Emitter;
 use ElementorForge\Elementor\Emitter\Encoder;
 use ElementorForge\Elementor\Emitter\Parser;
+use ElementorForge\Safety\Gate;
 use ElementorForge\Settings\Store;
 use WP_Error;
 
@@ -67,6 +68,12 @@ final class AddSection {
 		if ( $page_id <= 0 ) {
 			return new WP_Error( 'elementor_forge_invalid_page', 'Invalid page_id.' );
 		}
+
+		$gate = Gate::check( 'add_section', Gate::ACTION_MODIFY, $page_id );
+		if ( is_wp_error( $gate ) ) {
+			return $gate;
+		}
+
 		if ( empty( $block ) ) {
 			return new WP_Error( 'elementor_forge_missing_block', 'block payload is required.' );
 		}

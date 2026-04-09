@@ -9,15 +9,15 @@ declare(strict_types=1);
 
 namespace ElementorForge\Settings;
 
+use ElementorForge\Safety\Mode;
+
 /**
- * Canonical defaults for the four plugin-level toggles locked with Kenneth on 2026-04-09.
+ * Canonical defaults for the plugin-level toggles.
  *
- * @psalm-type SettingsArray = array{
- *     acf_mode: 'free'|'pro',
- *     ucaddon_shim: 'preserve'|'strip',
- *     mcp_server: 'enabled'|'disabled',
- *     header_pattern: 'service_business'|'ecommerce'
- * }
+ * The original four (acf_mode, ucaddon_shim, mcp_server, header_pattern) were
+ * locked with Kenneth on 2026-04-09. The two safety keys were added in v0.4.0
+ * to back the scope_mode feature — default is {@see Mode::FULL} so existing
+ * installs preserve prior behavior on upgrade.
  */
 final class Defaults {
 
@@ -36,14 +36,16 @@ final class Defaults {
 	/**
 	 * Return the canonical default settings.
 	 *
-	 * @return array{acf_mode: string, ucaddon_shim: string, mcp_server: string, header_pattern: string}
+	 * @return array{acf_mode: string, ucaddon_shim: string, mcp_server: string, header_pattern: string, safety_mode: string, safety_allowed_post_ids: string}
 	 */
 	public static function all(): array {
 		return array(
-			'acf_mode'       => self::ACF_MODE_FREE,
-			'ucaddon_shim'   => self::UCADDON_SHIM_PRESERVE,
-			'mcp_server'     => self::MCP_SERVER_ENABLED,
-			'header_pattern' => self::HEADER_PATTERN_SERVICE_BUSINESS,
+			'acf_mode'                => self::ACF_MODE_FREE,
+			'ucaddon_shim'            => self::UCADDON_SHIM_PRESERVE,
+			'mcp_server'              => self::MCP_SERVER_ENABLED,
+			'header_pattern'          => self::HEADER_PATTERN_SERVICE_BUSINESS,
+			'safety_mode'             => Mode::FULL,
+			'safety_allowed_post_ids' => '',
 		);
 	}
 }

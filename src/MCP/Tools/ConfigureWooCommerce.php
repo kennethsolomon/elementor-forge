@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace ElementorForge\MCP\Tools;
 
+use ElementorForge\Safety\Gate;
 use ElementorForge\WooCommerce\WooCommerce;
 use WP_Error;
 
@@ -97,6 +98,11 @@ final class ConfigureWooCommerce {
 	 * @return array<string, mixed>|WP_Error
 	 */
 	public static function execute( array $input ) {
+		$gate = Gate::check( 'configure_woocommerce', Gate::ACTION_SITE_WIDE );
+		if ( is_wp_error( $gate ) ) {
+			return $gate;
+		}
+
 		if ( ! WooCommerce::is_wc_active() ) {
 			return new WP_Error(
 				'elementor_forge_wc_missing',

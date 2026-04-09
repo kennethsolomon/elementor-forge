@@ -12,6 +12,7 @@ namespace ElementorForge\MCP\Tools;
 use ElementorForge\Elementor\Emitter\ContentDoc;
 use ElementorForge\Elementor\Emitter\Emitter;
 use ElementorForge\Elementor\Emitter\Encoder;
+use ElementorForge\Safety\Gate;
 use WP_Error;
 
 /**
@@ -65,6 +66,11 @@ final class CreatePage {
 	 * @return array<string, mixed>|WP_Error
 	 */
 	public static function execute( array $input ) {
+		$gate = Gate::check( 'create_page', Gate::ACTION_CREATE );
+		if ( is_wp_error( $gate ) ) {
+			return $gate;
+		}
+
 		$title       = isset( $input['title'] ) && is_string( $input['title'] ) ? sanitize_text_field( $input['title'] ) : '';
 		$status      = isset( $input['status'] ) && is_string( $input['status'] ) ? $input['status'] : 'draft';
 		$content_doc = isset( $input['content_doc'] ) && is_array( $input['content_doc'] ) ? $input['content_doc'] : array();

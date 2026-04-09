@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace ElementorForge\Admin\Settings;
 
 use ElementorForge\Intelligence\LayoutJudge\LayoutJudge;
+use ElementorForge\Safety\Gate;
+use ElementorForge\Safety\Mode;
 use ElementorForge\Settings\Defaults;
 use ElementorForge\Settings\OptionKeys;
 use ElementorForge\Settings\Store;
@@ -118,6 +120,29 @@ final class Page {
 			self::MENU_SLUG,
 			self::SECTION_ID
 		);
+
+		add_settings_section(
+			'elementor_forge_safety',
+			'Safety — scope mode',
+			static function (): void {
+				echo '<p>' . esc_html__( 'Controls the blast radius of every MCP write tool. Default is Full (backwards-compatible). Switch to Page-only when installing on a client site to restrict add_section to specific posts. Read-only disables every write tool for diagnostic runs.', 'elementor-forge' ) . '</p>';
+			},
+			self::MENU_SLUG
+		);
+		add_settings_field(
+			'safety_mode',
+			'Scope mode',
+			array( $this, 'render_safety_mode_field' ),
+			self::MENU_SLUG,
+			'elementor_forge_safety'
+		);
+		add_settings_field(
+			'safety_allowed_post_ids',
+			'Allowed post IDs',
+			array( $this, 'render_safety_allowlist_field' ),
+			self::MENU_SLUG,
+			'elementor_forge_safety'
+		);
 	}
 
 	public function render_page(): void {
@@ -154,6 +179,9 @@ final class Page {
 
 			<hr />
 			<?php $this->render_intelligence_section(); ?>
+
+			<hr />
+			<?php $this->render_safety_status_panel(); ?>
 
 			<hr />
 			<h2><?php echo esc_html__( 'Debug', 'elementor-forge' ); ?></h2>
@@ -325,6 +353,133 @@ final class Page {
 			selected( $current, Defaults::HEADER_PATTERN_SERVICE_BUSINESS, false ),
 			selected( $current, Defaults::HEADER_PATTERN_ECOMMERCE, false )
 		);
+	}
+
+	/**
+	 * Render the three scope mode radio options with color-coded badges and a
+	 * one-sentence description of each mode's blast radius.
+	 */
+	public function render_safety_mode_field(): void {
+		$current = Store::safety_mode();
+		$name    = OptionKeys::SETTINGS . '[safety_mode]';
+		$descriptions = array(
+			Mode::FULL      => __( 'All tools enabled. Wizard runs. Site-wide actions allowed. Default for new installs.', 'elementor-forge' ),
+			Mode::PAGE_ONLY => __( 'Wizard disabled. configure_woocommerce rejected. add_section only modifies posts in the allowlist below.', 'elementor-forge' ),
+			Mode::READ_ONLY => __( 'All MCP write tools return WP_Error. Diagnostic mode for locked-down client sites.', 'elementor-forge' ),
+		);
+		echo '<fieldset>';
+		foreach ( Mode::all() as $mode_value ) {
+			$id = 'elementor_forge_safety_mode_' . $mode_value;
+			printf(
+				'<label for="%s" style="display:block;margin-bottom:0.5em"><input type="radio" id="%s" name="%s" value="%s" %s /> <strong style="color:%s">%s</strong> — %s</label>',
+				esc_attr( $id ),
+				esc_attr( $id ),
+				esc_attr( $name ),
+				esc_attr( $mode_value ),
+				checked( $current, $mode_value, false ),
+				esc_attr( $this->color_to_css( Mode::color( $mode_value ) ) ),
+				esc_html( Mode::label( $mode_value ) ),
+				esc_html( $descriptions[ $mode_value ] )
+			);
+		}
+		echo '</fieldset>';
+	}
+
+	/**
+	 * Render the post ID allowlist CSV input with inline help.
+	 */
+	public function render_safety_allowlist_field(): void {
+		$current = Store::get( 'safety_allowed_post_ids' );
+		$name    = OptionKeys::SETTINGS . '[safety_allowed_post_ids]';
+		printf(
+			'<input type="text" name="%s" value="%s" class="regular-text" placeholder="52, 101, 150" />',
+			esc_attr( $name ),
+			esc_attr( $current )
+		);
+		echo '<p class="description">' . esc_html__( 'Comma-separated post IDs. In page_only mode, add_section will only modify these posts. Leave empty to block all add_section calls in page_only mode.', 'elementor-forge' ) . '</p>';
+	}
+
+	/**
+	 * Render a read-only panel showing the current scope mode + a per-tool
+	 * matrix of allowed/rejected status. Lets Kenneth verify at a glance what
+	 * the gate is enforcing without opening the code.
+	 */
+	private function render_safety_status_panel(): void {
+		$mode      = Gate::current_mode();
+		$allowlist = Store::safety_allowlist();
+		$color     = Mode::color( $mode );
+		?>
+		<h2><?php echo esc_html__( 'Safety — current gate status', 'elementor-forge' ); ?></h2>
+		<p>
+			<?php echo esc_html__( 'Active mode:', 'elementor-forge' ); ?>
+			<strong style="color:<?php echo esc_attr( $this->color_to_css( $color ) ); ?>">
+				<?php echo esc_html( Mode::label( $mode ) ); ?>
+			</strong>
+		</p>
+		<p>
+			<?php echo esc_html__( 'Allowlist:', 'elementor-forge' ); ?>
+			<code><?php echo esc_html( $allowlist->is_empty() ? __( '(empty)', 'elementor-forge' ) : $allowlist->to_string() ); ?></code>
+		</p>
+		<table class="widefat striped" style="max-width:700px">
+			<thead>
+				<tr>
+					<th><?php echo esc_html__( 'Tool', 'elementor-forge' ); ?></th>
+					<th><?php echo esc_html__( 'Status', 'elementor-forge' ); ?></th>
+				</tr>
+			</thead>
+			<tbody>
+				<?php
+				$matrix = array(
+					'create_page'          => Gate::check( 'create_page', Gate::ACTION_CREATE ),
+					'add_section'          => Gate::check( 'add_section', Gate::ACTION_MODIFY, $allowlist->is_empty() ? null : $allowlist->to_array()[0] ),
+					'apply_template'       => Gate::check( 'apply_template', Gate::ACTION_CREATE ),
+					'bulk_generate_pages'  => Gate::check( 'bulk_generate_pages', Gate::ACTION_CREATE ),
+					'configure_woocommerce' => Gate::check( 'configure_woocommerce', Gate::ACTION_SITE_WIDE ),
+					'manage_slider'        => Gate::check( 'manage_slider', Gate::ACTION_MODIFY ),
+				);
+				foreach ( $matrix as $tool => $result ) {
+					$is_allowed = ( true === $result );
+					$label      = $is_allowed ? __( 'ALLOWED', 'elementor-forge' ) : __( 'REJECTED', 'elementor-forge' );
+					$style      = $is_allowed ? 'color:green' : 'color:red';
+					$reason     = '';
+					if ( ! $is_allowed ) {
+						// Gate::check returns true|WP_Error, so !$is_allowed means $result is WP_Error.
+						$reason = ' — ' . $result->get_error_code();
+					}
+					printf(
+						'<tr><td><code>%s</code></td><td style="%s"><strong>%s</strong>%s</td></tr>',
+						esc_html( $tool ),
+						esc_attr( $style ),
+						esc_html( $label ),
+						esc_html( $reason )
+					);
+				}
+				?>
+			</tbody>
+		</table>
+		<p>
+			<?php echo esc_html__( 'Wizard enabled:', 'elementor-forge' ); ?>
+			<strong><?php echo Gate::is_wizard_enabled() ? esc_html__( 'Yes', 'elementor-forge' ) : esc_html__( 'No (disabled in current mode)', 'elementor-forge' ); ?></strong>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Map the {@see Mode::color()} opaque token to an actual hex color for
+	 * inline styles. The token → hex mapping lives here so Mode stays free of
+	 * UI dependencies.
+	 */
+	private function color_to_css( string $token ): string {
+		switch ( $token ) {
+			case 'green':
+				return '#2e7d32';
+			case 'yellow':
+				return '#b58900';
+			case 'red':
+				return '#b71c1c';
+			default:
+				return '#555555';
+		}
 	}
 
 	public function handle_rerun_onboarding(): void {

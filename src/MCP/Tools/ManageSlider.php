@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace ElementorForge\MCP\Tools;
 
+use ElementorForge\Safety\Gate;
 use ElementorForge\SmartSlider\SliderRepository;
 use ElementorForge\SmartSlider\SmartSliderUnavailable;
 use WP_Error;
@@ -77,6 +78,16 @@ final class ManageSlider {
 	 * @return array<string, mixed>|WP_Error
 	 */
 	public static function execute( array $input ) {
+		// manage_slider's CRUD surface mixes list/get (reads) with create/update/delete
+		// (writes). The Gate treats the entire tool as a write surface in read_only
+		// mode — callers that want read access in read_only must run SQL directly.
+		// In page_only mode sliders are not posts so the allowlist is bypassed per
+		// Gate's special-case handling.
+		$gate = Gate::check( 'manage_slider', Gate::ACTION_MODIFY );
+		if ( is_wp_error( $gate ) ) {
+			return $gate;
+		}
+
 		$action = isset( $input['action'] ) && is_string( $input['action'] ) ? $input['action'] : '';
 		if ( ! in_array( $action, self::ACTIONS, true ) ) {
 			return new WP_Error( 'elementor_forge_invalid_action', 'Unknown manage_slider action.' );

@@ -2,6 +2,41 @@
 
 All notable changes to Elementor Forge will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] — 2026-04-10 — Safety Feature: Scope Mode + Post ID Allowlist
+
+### Added
+
+- **`src/Safety/` namespace** with three classes enforcing plugin-level scope lock:
+  - `Mode` — the three scope modes (`full`, `page_only`, `read_only`) with labels and color classes
+  - `Allowlist` — parses + validates the comma-separated post ID allowlist, rejects non-positive integers, deduplicates
+  - `Gate` — central enforcement. Every MCP write tool calls `Gate::check($tool, $action_type, $post_id)` as the first thing in `execute()`. Returns `true` on allow, `WP_Error` with a specific error code on reject.
+- **Two new plugin settings**: `safety_mode` (default `full` for backwards compat) and `safety_allowed_post_ids` (default empty)
+- **Safety sub-section** in the Admin Settings page — scope mode radio group, allowlist input, live "current gate status" panel showing the allow/reject verdict for every MCP tool under the current mode
+- **Wizard guard** — `Onboarding\Wizard` returns `wp_die` in `page_only` or `read_only` mode
+- **36 new unit tests** across `tests/Unit/Safety/{ModeTest,AllowlistTest,GateTest}.php` + `tests/Unit/MCP/Tools/ToolsGateDelegationTest.php` verifying every MCP tool delegates to the gate. Total tests 272 / 1022 assertions (was 216 / 926).
+- **`docs/safety-modes.md`** — canonical documentation on scope modes, recommended client-site install workflow, error codes
+
+### Changed
+
+- **Every MCP write tool** (`CreatePage`, `AddSection`, `ApplyTemplate`, `BulkGenerate`, `ConfigureWooCommerce`, `ManageSlider`) gated through `Gate::check()` at the top of `execute()`
+- **Plugin version** bumped to `0.4.0` (was `0.3.0`)
+- **`uninstall.php`** option cleanup list extended with `elementor_forge_safety_mode` and `elementor_forge_safety_allowed_post_ids`
+
+### Gate decision matrix
+
+| Tool | `full` | `page_only` | `read_only` |
+|---|---|---|---|
+| `create_page` | allow | allow | reject |
+| `add_section` | allow | allow iff `post_id` in allowlist; empty allowlist = reject | reject |
+| `apply_template` | allow | allow | reject |
+| `bulk_generate_pages` | allow | allow | reject |
+| `configure_woocommerce` | allow | reject (site-wide) | reject |
+| `manage_slider` | allow | allow (sliders are not posts) | reject |
+
+### Why this ships
+
+Kenneth's SDM workflow installs the plugin on client WordPress sites. Before v0.4.0 there was no code-level scope enforcement — only discipline. Flip to `page_only` mode and populate the allowlist with the specific post IDs you're editing, and the plugin refuses to modify any post ID not in the list. Site-wide tools (`configure_woocommerce`) are hard-rejected in `page_only`. The onboarding wizard is disabled. No accidents.
+
 ## [0.3.0] — 2026-04-09 — Phase 3: Intelligence Layer + Smart Slider CRUD + Batched Bulk Generation
 
 ### Added
