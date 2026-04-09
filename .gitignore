@@ -1,0 +1,16 @@
+vendor/
+node_modules/
+.phpunit.cache/
+.phpunit.result.cache
+coverage/
+tests/E2E/_report/
+tests/E2E/test-results/
+tests/fixtures/uploads/*
+!tests/fixtures/uploads/.gitkeep
+*.log
+.DS_Store
+.idea/
+.vscode/
+composer.phar
+wp-env/
+.wp-env.override.json

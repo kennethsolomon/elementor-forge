@@ -1,0 +1,17 @@
+parameters:
+    level: 6
+    paths:
+        - elementor-forge.php
+        - uninstall.php
+        - src
+    bootstrapFiles:
+        - tests/phpstan-bootstrap.php
+    excludePaths:
+        - vendor
+        - node_modules
+        - tests/fixtures
+    treatPhpDocTypesAsCertain: false
+    reportUnmatchedIgnoredErrors: false
+
+includes:
+    - vendor/szepeviktor/phpstan-wordpress/extension.neon

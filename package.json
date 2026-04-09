@@ -1,0 +1,19 @@
+{
+    "name": "elementor-forge-devtools",
+    "private": true,
+    "version": "0.1.0",
+    "description": "Dev tooling for Elementor Forge (wp-env + Playwright).",
+    "scripts": {
+        "env:start": "wp-env start",
+        "env:stop": "wp-env stop",
+        "env:clean": "wp-env clean all",
+        "env:run": "wp-env run",
+        "test:e2e": "playwright test",
+        "test:e2e:headed": "playwright test --headed",
+        "test:e2e:ui": "playwright test --ui"
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.47.0",
+        "@wordpress/env": "^10.10.0"
+    }
+}
