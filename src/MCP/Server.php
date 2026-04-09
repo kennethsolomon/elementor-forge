@@ -30,10 +30,11 @@ use WP\MCP\Transport\HttpTransport;
 final class Server {
 
 	public const CATEGORY           = 'elementor-forge';
-	public const ABILITY_CREATE_PAGE       = 'elementor-forge/create-page';
-	public const ABILITY_ADD_SECTION       = 'elementor-forge/add-section';
-	public const ABILITY_APPLY_TEMPLATE    = 'elementor-forge/apply-template';
-	public const ABILITY_BULK_GENERATE     = 'elementor-forge/bulk-generate-pages';
+	public const ABILITY_CREATE_PAGE            = 'elementor-forge/create-page';
+	public const ABILITY_ADD_SECTION            = 'elementor-forge/add-section';
+	public const ABILITY_APPLY_TEMPLATE         = 'elementor-forge/apply-template';
+	public const ABILITY_BULK_GENERATE          = 'elementor-forge/bulk-generate-pages';
+	public const ABILITY_CONFIGURE_WOOCOMMERCE  = 'elementor-forge/configure-woocommerce';
 
 	public const SERVER_ID        = 'elementor-forge';
 	public const REST_NAMESPACE   = 'elementor-forge/v1';
@@ -134,6 +135,23 @@ final class Server {
 				),
 			)
 		);
+
+		wp_register_ability(
+			self::ABILITY_CONFIGURE_WOOCOMMERCE,
+			array(
+				'label'               => 'Configure WooCommerce',
+				'description'         => 'Install the four WooCommerce Theme Builder templates, apply Fibosearch defaults, and switch the header pattern to ecommerce. Idempotent — safe to rerun.',
+				'category'            => self::CATEGORY,
+				'input_schema'        => Tools\ConfigureWooCommerce::input_schema(),
+				'output_schema'       => Tools\ConfigureWooCommerce::output_schema(),
+				'execute_callback'    => array( Tools\ConfigureWooCommerce::class, 'execute' ),
+				'permission_callback' => array( Tools\ConfigureWooCommerce::class, 'permission' ),
+				'meta'                => array(
+					'annotations'  => array( 'destructive' => true, 'idempotent' => true ),
+					'show_in_rest' => false,
+				),
+			)
+		);
 	}
 
 	public function register_server( McpAdapter $adapter ): void {
@@ -152,6 +170,7 @@ final class Server {
 				self::ABILITY_ADD_SECTION,
 				self::ABILITY_APPLY_TEMPLATE,
 				self::ABILITY_BULK_GENERATE,
+				self::ABILITY_CONFIGURE_WOOCOMMERCE,
 			),
 			array(),
 			array(),

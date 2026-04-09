@@ -7,6 +7,7 @@ namespace ElementorForge\Tests\Unit\MCP;
 use ElementorForge\MCP\Tools\AddSection;
 use ElementorForge\MCP\Tools\ApplyTemplate;
 use ElementorForge\MCP\Tools\BulkGenerate;
+use ElementorForge\MCP\Tools\ConfigureWooCommerce;
 use ElementorForge\MCP\Tools\CreatePage;
 use PHPUnit\Framework\TestCase;
 
@@ -34,5 +35,13 @@ final class ToolsSchemaTest extends TestCase {
 	public function test_bulk_generate_requires_at_least_one_item(): void {
 		$schema = BulkGenerate::input_schema();
 		$this->assertSame( 1, $schema['properties']['items']['minItems'] );
+	}
+
+	public function test_configure_woocommerce_schema_has_three_boolean_flags(): void {
+		$schema = ConfigureWooCommerce::input_schema();
+		$this->assertSame( 'object', $schema['type'] );
+		$this->assertSame( 'boolean', $schema['properties']['install_templates']['type'] );
+		$this->assertSame( 'boolean', $schema['properties']['apply_fibosearch']['type'] );
+		$this->assertSame( 'boolean', $schema['properties']['switch_header']['type'] );
 	}
 }

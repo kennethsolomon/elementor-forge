@@ -12,6 +12,7 @@ namespace ElementorForge\Admin\Settings;
 use ElementorForge\Settings\Defaults;
 use ElementorForge\Settings\OptionKeys;
 use ElementorForge\Settings\Store;
+use ElementorForge\WooCommerce\WooCommerce;
 
 /**
  * Single wp-admin settings page with four toggles, a "rerun onboarding" action,
@@ -32,6 +33,9 @@ final class Page {
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'admin_post_elementor_forge_rerun_onboarding', array( $this, 'handle_rerun_onboarding' ) );
 		add_action( 'admin_post_elementor_forge_rebuild_templates', array( $this, 'handle_rebuild_templates' ) );
+		add_action( 'admin_post_elementor_forge_wc_install_templates', array( $this, 'handle_wc_install_templates' ) );
+		add_action( 'admin_post_elementor_forge_wc_apply_fibosearch', array( $this, 'handle_wc_apply_fibosearch' ) );
+		add_action( 'admin_post_elementor_forge_wc_switch_header', array( $this, 'handle_wc_switch_header' ) );
 	}
 
 	public function register_menu(): void {
@@ -144,6 +148,9 @@ final class Page {
 			</form>
 
 			<hr />
+			<?php $this->render_woocommerce_section(); ?>
+
+			<hr />
 			<h2><?php echo esc_html__( 'Debug', 'elementor-forge' ); ?></h2>
 			<?php
 			$debug_json = wp_json_encode( $settings, JSON_PRETTY_PRINT );
@@ -153,6 +160,61 @@ final class Page {
 			?>
 			<pre><?php echo esc_html( $debug_json ); ?></pre>
 		</div>
+		<?php
+	}
+
+	/**
+	 * Render the WooCommerce sub-section — detection panel + three action
+	 * buttons (install WC templates, apply Fibosearch defaults, switch to
+	 * ecommerce header). Every button is an admin-post form protected by the
+	 * shared admin-action nonce.
+	 */
+	private function render_woocommerce_section(): void {
+		$wc     = new WooCommerce();
+		$report = $wc->report();
+		?>
+		<h2><?php echo esc_html__( 'WooCommerce', 'elementor-forge' ); ?></h2>
+		<table class="widefat striped" style="max-width:700px">
+			<tbody>
+				<tr>
+					<th><?php echo esc_html__( 'WooCommerce detected', 'elementor-forge' ); ?></th>
+					<td><?php echo $report['wc_active'] ? 'Yes (' . esc_html( $report['wc_version'] ) . ')' : 'No'; ?></td>
+				</tr>
+				<tr>
+					<th><?php echo esc_html__( 'WC templates installed', 'elementor-forge' ); ?></th>
+					<td><?php echo esc_html( (string) $report['wc_templates_installed'] . ' / ' . (string) $report['wc_templates_total'] ); ?></td>
+				</tr>
+				<tr>
+					<th><?php echo esc_html__( 'Fibosearch detected', 'elementor-forge' ); ?></th>
+					<td><?php echo $report['fibosearch']['detected'] ? 'Yes (' . esc_html( $report['fibosearch']['version'] ) . ')' : 'No'; ?></td>
+				</tr>
+				<tr>
+					<th><?php echo esc_html__( 'Fibosearch settings in sync', 'elementor-forge' ); ?></th>
+					<td><?php echo $report['fibosearch']['in_sync'] ? 'Yes' : 'No'; ?></td>
+				</tr>
+				<tr>
+					<th><?php echo esc_html__( 'Header variant active', 'elementor-forge' ); ?></th>
+					<td><?php echo esc_html( $report['header_variant_active'] ); ?></td>
+				</tr>
+			</tbody>
+		</table>
+		<p>
+			<form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post" style="display:inline">
+				<?php wp_nonce_field( self::NONCE_ACTION, self::NONCE_FIELD ); ?>
+				<input type="hidden" name="action" value="elementor_forge_wc_install_templates" />
+				<?php submit_button( esc_html__( 'Install WC Theme Builder templates', 'elementor-forge' ), 'secondary', 'submit', false ); ?>
+			</form>
+			<form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post" style="display:inline; margin-left:0.5em">
+				<?php wp_nonce_field( self::NONCE_ACTION, self::NONCE_FIELD ); ?>
+				<input type="hidden" name="action" value="elementor_forge_wc_apply_fibosearch" />
+				<?php submit_button( esc_html__( 'Apply Fibosearch defaults', 'elementor-forge' ), 'secondary', 'submit', false ); ?>
+			</form>
+			<form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post" style="display:inline; margin-left:0.5em">
+				<?php wp_nonce_field( self::NONCE_ACTION, self::NONCE_FIELD ); ?>
+				<input type="hidden" name="action" value="elementor_forge_wc_switch_header" />
+				<?php submit_button( esc_html__( 'Switch header to ecommerce', 'elementor-forge' ), 'secondary', 'submit', false ); ?>
+			</form>
+		</p>
 		<?php
 	}
 
@@ -211,6 +273,27 @@ final class Page {
 		$this->verify_admin_post();
 		( new \ElementorForge\Elementor\ThemeBuilder\Installer() )->install_all();
 		wp_safe_redirect( admin_url( 'admin.php?page=elementor-forge&rebuilt=1' ) );
+		exit;
+	}
+
+	public function handle_wc_install_templates(): void {
+		$this->verify_admin_post();
+		( new WooCommerce() )->install_templates();
+		wp_safe_redirect( admin_url( 'admin.php?page=elementor-forge&wc_templates=1' ) );
+		exit;
+	}
+
+	public function handle_wc_apply_fibosearch(): void {
+		$this->verify_admin_post();
+		( new WooCommerce() )->apply_fibosearch_defaults();
+		wp_safe_redirect( admin_url( 'admin.php?page=elementor-forge&fibosearch=1' ) );
+		exit;
+	}
+
+	public function handle_wc_switch_header(): void {
+		$this->verify_admin_post();
+		( new WooCommerce() )->switch_to_ecommerce_header();
+		wp_safe_redirect( admin_url( 'admin.php?page=elementor-forge&header=ecommerce' ) );
 		exit;
 	}
 
