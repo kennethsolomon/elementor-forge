@@ -1,6 +1,6 @@
 {
     "name": "kennethsolomon/elementor-forge",
-    "description": "Content-doc to Elementor page generator, Theme Builder templates, and MCP server for WordPress + Elementor Pro.",
+    "description": "Emitter, CPTs, Theme Builder, WooCommerce, Intelligence Layer, Smart Slider 3 CRUD, bulk generation, MCP server. Content-doc to Elementor page generator for WordPress + Elementor Pro.",
     "type": "wordpress-plugin",
     "license": "GPL-2.0-or-later",
     "minimum-stability": "dev",

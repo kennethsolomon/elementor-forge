@@ -56,8 +56,8 @@ final class BulkGenerate {
 			'required'             => array( 'cpt', 'items' ),
 			'additionalProperties' => false,
 			'properties'           => array(
-				'cpt'           => array( 'type' => 'string', 'enum' => array( PostTypes::LOCATION, PostTypes::SERVICE ) ),
-				'items'         => array(
+				'cpt'            => array( 'type' => 'string', 'enum' => array( PostTypes::LOCATION, PostTypes::SERVICE ) ),
+				'items'          => array(
 					'type'     => 'array',
 					'minItems' => 1,
 					'items'    => array(
@@ -70,12 +70,12 @@ final class BulkGenerate {
 						),
 					),
 				),
-				'multiply_by'   => array(
+				'multiply_by'    => array(
 					'type'        => 'string',
 					'enum'        => array( PostTypes::LOCATION, PostTypes::SERVICE ),
 					'description' => 'Optional. When provided, items are crossed with service_items to produce a matrix.',
 				),
-				'service_items' => array(
+				'service_items'  => array(
 					'type'  => 'array',
 					'items' => array(
 						'type'       => 'object',
@@ -86,9 +86,14 @@ final class BulkGenerate {
 						),
 					),
 				),
-				'transactional' => array( 'type' => 'boolean', 'default' => true ),
-				'dry_run'       => array( 'type' => 'boolean', 'default' => false ),
-				'job_id'        => array( 'type' => 'string', 'description' => 'Optional caller-supplied job id for progress polling.' ),
+				'transactional'  => array( 'type' => 'boolean', 'default' => true ),
+				'dry_run'        => array( 'type' => 'boolean', 'default' => false ),
+				'job_id'         => array( 'type' => 'string', 'description' => 'Optional caller-supplied job id for progress polling.' ),
+				'allowed_fields' => array(
+					'type'        => 'array',
+					'items'       => array( 'type' => 'string' ),
+					'description' => 'Hard allowlist of ACF field keys. When present, any key in acf_fields NOT in this list is dropped before write. When absent, the underscore-prefix filter runs alone.',
+				),
 			),
 		);
 	}
@@ -130,14 +135,23 @@ final class BulkGenerate {
 			return new WP_Error( 'elementor_forge_empty_items', 'items[] cannot be empty.' );
 		}
 
-		$multiply_by   = isset( $input['multiply_by'] ) && is_string( $input['multiply_by'] ) ? $input['multiply_by'] : '';
-		$service_items = isset( $input['service_items'] ) && is_array( $input['service_items'] ) ? $input['service_items'] : array();
-		$transactional = ! isset( $input['transactional'] ) || (bool) $input['transactional'];
-		$dry_run       = isset( $input['dry_run'] ) && (bool) $input['dry_run'];
-		$job_id        = isset( $input['job_id'] ) && is_string( $input['job_id'] ) ? $input['job_id'] : self::generate_job_id();
+		$multiply_by    = isset( $input['multiply_by'] ) && is_string( $input['multiply_by'] ) ? $input['multiply_by'] : '';
+		$service_items  = isset( $input['service_items'] ) && is_array( $input['service_items'] ) ? $input['service_items'] : array();
+		$transactional  = ! isset( $input['transactional'] ) || (bool) $input['transactional'];
+		$dry_run        = isset( $input['dry_run'] ) && (bool) $input['dry_run'];
+		$job_id         = isset( $input['job_id'] ) && is_string( $input['job_id'] ) ? $input['job_id'] : self::generate_job_id();
+		$allowed_fields = null;
+		if ( isset( $input['allowed_fields'] ) && is_array( $input['allowed_fields'] ) ) {
+			$allowed_fields = array();
+			foreach ( $input['allowed_fields'] as $field ) {
+				if ( is_string( $field ) && '' !== $field ) {
+					$allowed_fields[] = $field;
+				}
+			}
+		}
 
 		// Build the planned task list. Matrix mode crosses items × service_items.
-		$plan = self::build_plan( $cpt, $items, $multiply_by, $service_items );
+		$plan          = self::build_plan( $cpt, $items, $multiply_by, $service_items );
 		$planned_count = count( $plan );
 
 		if ( $dry_run ) {
@@ -162,49 +176,77 @@ final class BulkGenerate {
 		}
 
 		global $wpdb;
+		$transaction_active = false;
 		if ( $transactional && isset( $wpdb ) && method_exists( $wpdb, 'query' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->query( 'START TRANSACTION' );
+			$transaction_active = true;
 		}
 
-		$created     = array();
-		$failed      = array();
-		$rolled_back = false;
+		$created        = array();
+		$failed         = array();
+		$rejected_keys  = array();
+		$rolled_back    = false;
 
-		foreach ( $plan as $idx => $task ) {
-			$result = self::insert_one( $task );
-			if ( is_wp_error( $result ) ) {
-				$failed[] = array(
-					'title' => $task['title'],
-					'error' => $result->get_error_message(),
-				);
-				if ( $transactional ) {
-					if ( isset( $wpdb ) && method_exists( $wpdb, 'query' ) ) {
-						$wpdb->query( 'ROLLBACK' );
+		try {
+			foreach ( $plan as $idx => $task ) {
+				$filter_result         = self::filter_meta_input( $task['acf_fields'], $allowed_fields );
+				$task['acf_fields']    = $filter_result['fields'];
+				if ( array() !== $filter_result['rejected'] ) {
+					foreach ( $filter_result['rejected'] as $bad_key ) {
+						$rejected_keys[] = $task['title'] . ':' . $bad_key;
 					}
-					$rolled_back = true;
-					break;
 				}
-			} else {
-				$created[] = $result;
+
+				$result = self::insert_one( $task );
+				if ( is_wp_error( $result ) ) {
+					$failed[] = array(
+						'title' => $task['title'],
+						'error' => $result->get_error_message(),
+					);
+					if ( $transactional ) {
+						if ( $transaction_active && isset( $wpdb ) && method_exists( $wpdb, 'query' ) ) {
+							// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+							$wpdb->query( 'ROLLBACK' );
+							$transaction_active = false;
+						}
+						$rolled_back = true;
+						break;
+					}
+				} else {
+					$created[] = $result;
+				}
+				self::progress_advance( $job_id, $idx + 1 );
 			}
-			self::progress_advance( $job_id, $idx + 1 );
+
+			if ( $transaction_active && ! $rolled_back && isset( $wpdb ) && method_exists( $wpdb, 'query' ) ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$wpdb->query( 'COMMIT' );
+				$transaction_active = false;
+			}
+		} catch ( \Throwable $e ) {
+			// Any uncaught throwable from wp_insert_post or beneath — roll back
+			// explicitly so a half-written transaction never lingers, then
+			// re-throw so the caller sees the real failure.
+			if ( $transaction_active && isset( $wpdb ) && method_exists( $wpdb, 'query' ) ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$wpdb->query( 'ROLLBACK' );
+				$transaction_active = false;
+			}
+			throw $e;
+		} finally {
+			// Restore prior cache-suspension state (NOT hardcoded false — the
+			// caller may already have had it suspended for other reasons).
+			if ( function_exists( 'wp_suspend_cache_addition' ) ) {
+				wp_suspend_cache_addition( (bool) $prev_suspend );
+			}
+			if ( function_exists( 'wp_defer_term_counting' ) ) {
+				wp_defer_term_counting( false );
+			}
+			self::progress_complete( $job_id );
 		}
 
-		if ( $transactional && ! $rolled_back && isset( $wpdb ) && method_exists( $wpdb, 'query' ) ) {
-			$wpdb->query( 'COMMIT' );
-		}
-
-		// Re-enable cache addition + flush term counts.
-		if ( function_exists( 'wp_suspend_cache_addition' ) ) {
-			wp_suspend_cache_addition( $prev_suspend );
-		}
-		if ( function_exists( 'wp_defer_term_counting' ) ) {
-			wp_defer_term_counting( false );
-		}
-
-		self::progress_complete( $job_id );
-
-		return array(
+		$out = array(
 			'job_id'        => $job_id,
 			'planned'       => $planned_count,
 			'created'       => $created,
@@ -213,6 +255,43 @@ final class BulkGenerate {
 			'rolled_back'   => $rolled_back,
 			'transactional' => $transactional,
 		);
+		if ( array() !== $rejected_keys ) {
+			$out['rejected_meta_keys'] = $rejected_keys;
+		}
+		return $out;
+	}
+
+	/**
+	 * Filter acf_fields to block `_`-prefixed meta keys (internal WP meta) and,
+	 * when an explicit `allowed_fields` param is supplied, to keep only keys in
+	 * the allowlist. Returns the filtered map + the list of rejected keys so the
+	 * caller (and the progress transient) can see what was stripped.
+	 *
+	 * @param array<string, mixed> $acf_fields
+	 * @param list<string>|null    $allowed_fields
+	 * @return array{fields: array<string, mixed>, rejected: list<string>}
+	 */
+	private static function filter_meta_input( array $acf_fields, ?array $allowed_fields ): array {
+		$fields   = array();
+		$rejected = array();
+		foreach ( $acf_fields as $key => $value ) {
+			if ( ! is_string( $key ) || '' === $key ) {
+				continue;
+			}
+			// Reject WP-internal meta convention (`_edit_lock`, `_elementor_data`,
+			// `_ef_template_type`, `_wp_page_template`, etc). These keys are never
+			// safe to set via a bulk MCP tool.
+			if ( '_' === $key[0] ) {
+				$rejected[] = $key;
+				continue;
+			}
+			if ( null !== $allowed_fields && ! in_array( $key, $allowed_fields, true ) ) {
+				$rejected[] = $key;
+				continue;
+			}
+			$fields[ $key ] = $value;
+		}
+		return array( 'fields' => $fields, 'rejected' => $rejected );
 	}
 
 	/**
@@ -281,25 +360,20 @@ final class BulkGenerate {
 	/**
 	 * Insert one post with all its meta in a single wp_insert_post call. Folds
 	 * the ACF fields into meta_input rather than calling update_field N times.
+	 * Filtering of `_`-prefixed or out-of-allowlist keys happens in the caller
+	 * via {@see self::filter_meta_input()} — by the time insert_one() runs,
+	 * every key is already safe.
 	 *
 	 * @param array{cpt:string, title:string, status:string, acf_fields:array<string, mixed>} $task
 	 * @return array{post_id:int, url:string}|WP_Error
 	 */
 	private static function insert_one( array $task ) {
-		$meta_input = array();
-		foreach ( $task['acf_fields'] as $key => $value ) {
-			if ( ! is_string( $key ) ) {
-				continue;
-			}
-			$meta_input[ $key ] = $value;
-		}
-
 		$post_id = wp_insert_post(
 			array(
 				'post_type'   => $task['cpt'],
 				'post_title'  => $task['title'],
 				'post_status' => $task['status'],
-				'meta_input'  => $meta_input,
+				'meta_input'  => $task['acf_fields'],
 			),
 			true
 		);

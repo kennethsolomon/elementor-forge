@@ -25,16 +25,20 @@ The shim is loaded via composer's `files` autoload entry so it's available on ev
 
 ## Tool registration flow
 
-Elementor Forge registers four MCP tools:
+Elementor Forge registers six MCP tools:
 
 | Tool | Ability name | Purpose |
 |---|---|---|
 | `create_page` | `elementor-forge/create-page` | Build a one-off Elementor page from a content doc |
 | `add_section` | `elementor-forge/add-section` | Append a saved section template to an existing page |
 | `apply_template` | `elementor-forge/apply-template` | Create a CPT post, populate ACF, assign Single template |
-| `bulk_generate_pages` | `elementor-forge/bulk-generate-pages` | Batch page creation (full impl lands in Phase 3) |
+| `bulk_generate_pages` | `elementor-forge/bulk-generate-pages` | Batched + transactional matrix page generation. Suspends cache addition and defers term counting across the loop; wraps the loop in a single `START TRANSACTION` / `COMMIT` / `ROLLBACK` with cleanup in a `finally` block so uncaught throwables never leave state lingering. Matrix mode crosses an items list with a service_items list to produce the Cartesian product. Dry-run mode returns the plan without writing. Progress polling via a transient keyed by job ID. Meta-key allowlist blocks `_`-prefixed internal WP meta and optionally enforces an explicit `allowed_fields` list. |
+| `configure_woocommerce` | `elementor-forge/configure-woocommerce` | Idempotent WooCommerce Theme Builder template install + Fibosearch configuration layer (feature-detected via `function_exists('dgwt_wcas')`) |
+| `manage_slider` | `elementor-forge/manage-slider` | Smart Slider 3 CRUD — single tool, 8 actions (`create_slider`, `update_slider`, `get_slider`, `delete_slider`, `add_slide`, `update_slide`, `delete_slide`, `list_sliders`). All writes run through a recursive `wp_kses_post()` walker so programmatic slider content cannot introduce stored XSS. |
 
 Each tool is a WP Ability registered on the `wp_abilities_api_init` action via `\ElementorForge\MCP\Server::register_abilities()`. The adapter then consumes the abilities during `mcp_adapter_init` and exposes them as MCP tools over the HTTP transport.
+
+Canonical input/output JSON schemas for every tool live in `docs/mcp-tools.md`.
 
 The entire `\ElementorForge\MCP\Server` class is gated on the `mcp_server` plugin setting (`enabled` / `disabled`) — when disabled, no abilities are registered and no MCP server is created, leaving zero runtime footprint.
 

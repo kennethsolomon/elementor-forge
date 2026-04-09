@@ -169,4 +169,123 @@ final class BulkGenerateTest extends TestCase {
 		self::assertSame( 4, $progress['completed'] );
 		self::assertSame( 'running', $progress['status'] );
 	}
+
+	public function test_bulk_generate_rejects_underscore_prefixed_meta_keys(): void {
+		$captured_meta = array();
+		Functions\when( 'wp_insert_post' )->alias(
+			static function ( array $args ) use ( &$captured_meta ): int {
+				$captured_meta = $args['meta_input'];
+				return 555;
+			}
+		);
+		Functions\when( 'get_permalink' )->justReturn( 'https://example.test/post' );
+
+		$result = BulkGenerate::execute(
+			array(
+				'cpt'           => 'ef_location',
+				'transactional' => false,
+				'items'         => array(
+					array(
+						'title'      => 'Loc 1',
+						'acf_fields' => array(
+							'phone'             => '111',
+							'_elementor_data'   => '[{"evil":true}]',
+							'_edit_lock'        => '99999:1',
+							'_ef_template_type' => 'single',
+							'address'           => 'Street',
+						),
+					),
+				),
+			)
+		);
+
+		self::assertArrayNotHasKey( '_elementor_data', $captured_meta );
+		self::assertArrayNotHasKey( '_edit_lock', $captured_meta );
+		self::assertArrayNotHasKey( '_ef_template_type', $captured_meta );
+		self::assertArrayHasKey( 'phone', $captured_meta );
+		self::assertArrayHasKey( 'address', $captured_meta );
+		self::assertArrayHasKey( 'rejected_meta_keys', $result );
+		self::assertNotEmpty( $result['rejected_meta_keys'] );
+	}
+
+	public function test_bulk_generate_honors_explicit_allowed_fields_allowlist(): void {
+		$captured_meta = array();
+		Functions\when( 'wp_insert_post' )->alias(
+			static function ( $args ) use ( &$captured_meta ): int {
+				$captured_meta = $args['meta_input'];
+				return 777;
+			}
+		);
+		Functions\when( 'get_permalink' )->justReturn( 'https://example.test/post' );
+
+		BulkGenerate::execute(
+			array(
+				'cpt'            => 'ef_location',
+				'transactional'  => false,
+				'allowed_fields' => array( 'title', 'slug' ),
+				'items'          => array(
+					array(
+						'title'      => 'Loc 1',
+						'acf_fields' => array(
+							'title' => 'x',
+							'slug'  => 'y',
+							'other' => 'z',
+						),
+					),
+				),
+			)
+		);
+
+		self::assertArrayHasKey( 'title', $captured_meta );
+		self::assertArrayHasKey( 'slug', $captured_meta );
+		self::assertArrayNotHasKey( 'other', $captured_meta );
+	}
+
+	public function test_cleanup_runs_even_when_insert_throws(): void {
+		$suspend_calls = array();
+		Functions\when( 'wp_suspend_cache_addition' )->alias(
+			static function ( $state ) use ( &$suspend_calls ): bool {
+				$suspend_calls[] = (bool) $state;
+				return false; // prior state the caller thinks was in effect
+			}
+		);
+
+		$call_count = 0;
+		Functions\when( 'wp_insert_post' )->alias(
+			// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- Brain Monkey alias signature matches WP.
+			static function ( array $args ) use ( &$call_count ): int {
+				++$call_count;
+				if ( 3 === $call_count ) {
+					throw new \RuntimeException( 'simulated wp_insert_post failure' );
+				}
+				return 1000 + $call_count;
+			}
+		);
+		Functions\when( 'get_permalink' )->justReturn( 'https://example.test/post' );
+
+		$threw = false;
+		try {
+			BulkGenerate::execute(
+				array(
+					'cpt'           => 'ef_location',
+					'transactional' => true,
+					'items'         => array(
+						array( 'title' => 'A' ),
+						array( 'title' => 'B' ),
+						array( 'title' => 'C' ),
+						array( 'title' => 'D' ),
+					),
+				)
+			);
+		} catch ( \RuntimeException $e ) {
+			$threw = true;
+		}
+
+		self::assertTrue( $threw, 'Expected the RuntimeException to propagate out of execute().' );
+		// wp_suspend_cache_addition must have been called twice — once to
+		// suspend (true), once in finally to restore (the prior state: false).
+		self::assertGreaterThanOrEqual( 2, count( $suspend_calls ) );
+		self::assertTrue( $suspend_calls[0], 'First call must suspend cache addition.' );
+		self::assertFalse( end( $suspend_calls ), 'Last call must restore prior cache-addition state.' );
+	}
 }

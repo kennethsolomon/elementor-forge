@@ -259,4 +259,111 @@ final class SliderRepositoryTest extends TestCase {
 		Functions\when( 'get_option' )->justReturn( false );
 		self::assertSame( '', ( new SliderRepository( $this->wpdb ) )->detect_version() );
 	}
+
+	public function test_create_slider_strips_script_tags_from_title(): void {
+		$repo = new SliderRepository( $this->wpdb );
+
+		$repo->create_slider( '<script>alert(1)</script>My Slider', array() );
+
+		$insert = $this->wpdb->inserts[0];
+		self::assertStringNotContainsString( '<script', $insert['data']['title'] );
+		self::assertStringNotContainsString( 'alert(1)', $insert['data']['title'] );
+		self::assertStringContainsString( 'My Slider', $insert['data']['title'] );
+		// params.aria-label was derived from the title and must also be stripped.
+		$decoded_params = json_decode( $insert['data']['params'], true );
+		self::assertIsArray( $decoded_params );
+		self::assertStringNotContainsString( '<script', (string) $decoded_params['aria-label'] );
+	}
+
+	public function test_add_slide_sanitizes_nested_layer_content(): void {
+		$this->wpdb->var_return = 0;
+		$repo = new SliderRepository( $this->wpdb );
+
+		$repo->add_slide(
+			10,
+			array(
+				'title'  => 'Slide',
+				'layers' => array(
+					array(
+						'type'     => 'content',
+						'children' => array(
+							array(
+								'type' => 'layer',
+								'item' => array(
+									'type'   => 'text',
+									'values' => array(
+										'content' => '<script>steal()</script>Hello',
+									),
+								),
+							),
+						),
+					),
+				),
+			)
+		);
+
+		$insert = $this->wpdb->inserts[0];
+		self::assertIsString( $insert['data']['slide'] );
+		self::assertStringNotContainsString( '<script', $insert['data']['slide'] );
+		self::assertStringNotContainsString( 'steal()', $insert['data']['slide'] );
+		self::assertStringContainsString( 'Hello', $insert['data']['slide'] );
+	}
+
+	public function test_sanitize_preserves_safe_html(): void {
+		$this->wpdb->var_return = 0;
+		$repo                   = new SliderRepository( $this->wpdb );
+
+		$repo->add_slide(
+			10,
+			array(
+				'title'  => 'Slide',
+				'layers' => array(
+					array(
+						'type'     => 'content',
+						'children' => array(
+							array(
+								'type' => 'layer',
+								'item' => array(
+									'type'   => 'text',
+									'values' => array(
+										'content' => '<strong>Bold</strong> text with <a href="https://example.com">link</a>',
+									),
+								),
+							),
+						),
+					),
+				),
+			)
+		);
+
+		$insert = $this->wpdb->inserts[0];
+		$decoded = json_decode( $insert['data']['slide'], true );
+		self::assertIsArray( $decoded );
+		$content = $decoded[0]['children'][0]['item']['values']['content'];
+		self::assertStringContainsString( '<strong>', $content );
+		self::assertStringContainsString( 'Bold', $content );
+		self::assertStringContainsString( 'https://example.com', $content );
+		self::assertStringContainsString( '<a href=', $content );
+	}
+
+	public function test_delete_slider_rolls_back_on_mid_sequence_failure(): void {
+		// Fail on the SECOND delete call (the xref delete) so we can assert
+		// the first delete was rolled back via a ROLLBACK query.
+		$this->wpdb->delete_fail_at = array( 1 => true );
+		$repo                       = new SliderRepository( $this->wpdb );
+
+		try {
+			$repo->delete_slider( 7 );
+			self::fail( 'Expected SmartSliderUnavailable to be thrown.' );
+		} catch ( SmartSliderUnavailable $e ) {
+			self::assertStringContainsString( 'xref', $e->getMessage() );
+		}
+
+		// First delete (slides) was attempted, second (xref) failed → only 2 delete() calls.
+		self::assertCount( 2, $this->wpdb->deletes );
+		// ROLLBACK should be in the queries log — proof the transaction was wound back.
+		self::assertContains( 'START TRANSACTION', $this->wpdb->queries );
+		self::assertContains( 'ROLLBACK', $this->wpdb->queries );
+		self::assertNotContains( 'COMMIT', $this->wpdb->queries );
+	}
 }

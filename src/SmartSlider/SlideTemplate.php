@@ -78,7 +78,7 @@ final class SlideTemplate {
 			'mobilelandscape'         => 1,
 			'item'                    => array(
 				'type'   => 'heading',
-				'values' => array( 'heading' => $text ),
+				'values' => array( 'heading' => self::kses_post( $text ) ),
 			),
 		);
 	}
@@ -99,9 +99,28 @@ final class SlideTemplate {
 			'mobilelandscape'         => 1,
 			'item'                    => array(
 				'type'   => 'text',
-				'values' => array( 'content' => $text ),
+				'values' => array( 'content' => self::kses_post( $text ) ),
 			),
 		);
+	}
+
+	/**
+	 * Sanitize a string with `wp_kses_post()` when WP is loaded, otherwise a
+	 * deterministic fallback that strips `<script>` / `<iframe>` / event
+	 * handlers / `javascript:` URLs so unit tests (which run without WP) still
+	 * get the XSS guarantees the front-end renderer needs.
+	 */
+	private static function kses_post( string $text ): string {
+		if ( function_exists( 'wp_kses_post' ) ) {
+			return wp_kses_post( $text );
+		}
+		// Fallback path for pure-PHP unit tests — never reached in WP runtime.
+		$without_scripts = preg_replace( '#<(script|iframe|object|embed|style)\b[^>]*>.*?</\1>#is', '', $text );
+		$without_scripts = null === $without_scripts ? $text : $without_scripts;
+		$without_events  = preg_replace( '#\son\w+\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>]+)#i', '', $without_scripts );
+		$without_events  = null === $without_events ? $without_scripts : $without_events;
+		$without_js_uri  = preg_replace( '#(href|src)\s*=\s*(["\'])\s*javascript:[^"\']*\2#i', '$1=$2$2', $without_events );
+		return null === $without_js_uri ? $without_events : $without_js_uri;
 	}
 
 	/**

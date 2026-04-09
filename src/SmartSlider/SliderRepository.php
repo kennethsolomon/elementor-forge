@@ -100,13 +100,16 @@ final class SliderRepository {
 	public function create_slider( string $title, array $params = array() ): int {
 		$this->guard();
 
+		$safe_title  = self::kses_post( $title );
+		$safe_params = self::sanitize_string_leaves( $params );
+
 		$merged_params = array_merge(
 			array(
-				'aria-label'       => $title,
+				'aria-label'       => $safe_title,
 				'background-color' => 'FFFFFF00',
 				'background-size'  => 'cover',
 			),
-			$params
+			$safe_params
 		);
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -114,7 +117,7 @@ final class SliderRepository {
 			$this->sliders_table,
 			array(
 				'alias'         => null,
-				'title'         => $title,
+				'title'         => $safe_title,
 				'type'          => 'simple',
 				'params'        => self::encode_json( $merged_params ),
 				'slider_status' => 'published',
@@ -143,12 +146,15 @@ final class SliderRepository {
 	public function update_slider( int $slider_id, string $title, array $params ): bool {
 		$this->guard();
 
+		$safe_title  = self::kses_post( $title );
+		$safe_params = self::sanitize_string_leaves( $params );
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$updated = $this->wpdb->update(
 			$this->sliders_table,
 			array(
-				'title'  => $title,
-				'params' => self::encode_json( $params ),
+				'title'  => $safe_title,
+				'params' => self::encode_json( $safe_params ),
 				'time'   => $this->now(),
 			),
 			array( 'id' => $slider_id ),
@@ -199,15 +205,51 @@ final class SliderRepository {
 	public function delete_slider( int $slider_id ): bool {
 		$this->guard();
 
+		// Wrap the 3 sequential deletes in a single transaction when the
+		// underlying storage engine supports it. Mid-sequence failure rolls
+		// back rather than leaving orphaned slide / xref rows. On
+		// non-transactional engines (e.g. MyISAM), we fall through to the
+		// unwrapped path — partial state is still preferable to a lying
+		// return value.
+		$use_tx = method_exists( $this->wpdb, 'query' );
+		if ( $use_tx ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+			$this->wpdb->query( 'START TRANSACTION' );
+		}
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$slides_deleted = $this->wpdb->delete( $this->slides_table, array( 'slider' => $slider_id ), array( '%d' ) );
+		if ( false === $slides_deleted ) {
+			if ( $use_tx ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+				$this->wpdb->query( 'ROLLBACK' );
+			}
+			throw new SmartSliderUnavailable( 'Smart Slider delete partially failed at slides: ' . $this->wpdb->last_error );
+		}
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$xref_deleted = $this->wpdb->delete( $this->xref_table, array( 'slider_id' => $slider_id ), array( '%d' ) );
+		if ( false === $xref_deleted ) {
+			if ( $use_tx ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+				$this->wpdb->query( 'ROLLBACK' );
+			}
+			throw new SmartSliderUnavailable( 'Smart Slider delete partially failed at xref: ' . $this->wpdb->last_error );
+		}
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$slider_deleted = $this->wpdb->delete( $this->sliders_table, array( 'id' => $slider_id ), array( '%d' ) );
+		if ( false === $slider_deleted ) {
+			if ( $use_tx ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+				$this->wpdb->query( 'ROLLBACK' );
+			}
+			throw new SmartSliderUnavailable( 'Smart Slider delete partially failed at slider: ' . $this->wpdb->last_error );
+		}
 
-		if ( false === $slides_deleted || false === $xref_deleted || false === $slider_deleted ) {
-			throw new SmartSliderUnavailable( 'Smart Slider delete partially failed: ' . $this->wpdb->last_error );
+		if ( $use_tx ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+			$this->wpdb->query( 'COMMIT' );
 		}
 
 		$this->invalidate_cache( $slider_id );
@@ -226,11 +268,12 @@ final class SliderRepository {
 	public function add_slide( int $slider_id, array $slide_data ): int {
 		$this->guard();
 
-		$title = isset( $slide_data['title'] ) && is_string( $slide_data['title'] ) ? $slide_data['title'] : '';
-		$body  = isset( $slide_data['body'] ) && is_string( $slide_data['body'] ) ? $slide_data['body'] : '';
+		$title       = isset( $slide_data['title'] ) && is_string( $slide_data['title'] ) ? self::kses_post( $slide_data['title'] ) : '';
+		$body        = isset( $slide_data['body'] ) && is_string( $slide_data['body'] ) ? self::kses_post( $slide_data['body'] ) : '';
 		$layers_json = '';
 		if ( isset( $slide_data['layers'] ) && is_array( $slide_data['layers'] ) ) {
-			$layers_json = self::encode_json( $slide_data['layers'] );
+			$safe_layers = self::sanitize_string_leaves( $slide_data['layers'] );
+			$layers_json = self::encode_json( $safe_layers );
 		} else {
 			$layers_json = SlideTemplate::minimal( $title, $body );
 		}
@@ -242,7 +285,7 @@ final class SliderRepository {
 		);
 		$is_first = 0 === $existing ? 1 : 0;
 
-		$slide_params = isset( $slide_data['params'] ) && is_array( $slide_data['params'] ) ? $slide_data['params'] : array();
+		$slide_params = isset( $slide_data['params'] ) && is_array( $slide_data['params'] ) ? self::sanitize_string_leaves( $slide_data['params'] ) : array();
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$inserted = $this->wpdb->insert(
@@ -284,19 +327,20 @@ final class SliderRepository {
 		$set     = array();
 		$formats = array();
 		if ( isset( $slide_data['title'] ) && is_string( $slide_data['title'] ) ) {
-			$set['title'] = $slide_data['title'];
+			$set['title'] = self::kses_post( $slide_data['title'] );
 			$formats[]    = '%s';
 		}
 		if ( isset( $slide_data['layers'] ) && is_array( $slide_data['layers'] ) ) {
-			$set['slide'] = self::encode_json( $slide_data['layers'] );
+			$set['slide'] = self::encode_json( self::sanitize_string_leaves( $slide_data['layers'] ) );
 			$formats[]    = '%s';
 		} elseif ( isset( $slide_data['body'] ) && is_string( $slide_data['body'] ) ) {
-			$title        = isset( $slide_data['title'] ) && is_string( $slide_data['title'] ) ? $slide_data['title'] : '';
-			$set['slide'] = SlideTemplate::minimal( $title, $slide_data['body'] );
+			$title        = isset( $slide_data['title'] ) && is_string( $slide_data['title'] ) ? self::kses_post( $slide_data['title'] ) : '';
+			$body         = self::kses_post( $slide_data['body'] );
+			$set['slide'] = SlideTemplate::minimal( $title, $body );
 			$formats[]    = '%s';
 		}
 		if ( isset( $slide_data['params'] ) && is_array( $slide_data['params'] ) ) {
-			$set['params'] = self::encode_json( $slide_data['params'] );
+			$set['params'] = self::encode_json( self::sanitize_string_leaves( $slide_data['params'] ) );
 			$formats[]     = '%s';
 		}
 
@@ -455,6 +499,53 @@ final class SliderRepository {
 			return is_string( $value ) ? $value : gmdate( 'Y-m-d H:i:s' );
 		}
 		return gmdate( 'Y-m-d H:i:s' );
+	}
+
+	/**
+	 * Recursively walk an array and sanitize every string leaf with
+	 * {@see self::kses_post()}. Non-string leaves (int / float / bool / null)
+	 * are returned untouched. Keys are left as-is because the Smart Slider
+	 * schema uses caller-controlled keys inside `params` and `layers` and
+	 * sanitizing keys would corrupt the structure. This is the defense against
+	 * stored XSS in `sliders.params`, `slides.slide`, and `slides.params`:
+	 * every string written to the JSON blob is wp_kses_post-stripped so the
+	 * front-end renderer can only emit WP-safe HTML.
+	 *
+	 * @param array<int|string, mixed> $data
+	 * @return array<int|string, mixed>
+	 */
+	private static function sanitize_string_leaves( array $data ): array {
+		$out = array();
+		foreach ( $data as $key => $value ) {
+			if ( is_array( $value ) ) {
+				$out[ $key ] = self::sanitize_string_leaves( $value );
+				continue;
+			}
+			if ( is_string( $value ) ) {
+				$out[ $key ] = self::kses_post( $value );
+				continue;
+			}
+			$out[ $key ] = $value;
+		}
+		return $out;
+	}
+
+	/**
+	 * Run a string through `wp_kses_post()` when WP is loaded, otherwise a
+	 * deterministic fallback that strips `<script>`, `<iframe>`, event
+	 * handlers, and `javascript:` URIs so pure-PHP unit tests still get the
+	 * XSS guarantees the front-end renderer needs.
+	 */
+	private static function kses_post( string $value ): string {
+		if ( function_exists( 'wp_kses_post' ) ) {
+			return wp_kses_post( $value );
+		}
+		$without_scripts = preg_replace( '#<(script|iframe|object|embed|style)\b[^>]*>.*?</\1>#is', '', $value );
+		$without_scripts = null === $without_scripts ? $value : $without_scripts;
+		$without_events  = preg_replace( '#\son\w+\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>]+)#i', '', $without_scripts );
+		$without_events  = null === $without_events ? $without_scripts : $without_events;
+		$without_js_uri  = preg_replace( '#(href|src)\s*=\s*(["\'])\s*javascript:[^"\']*\2#i', '$1=$2$2', $without_events );
+		return null === $without_js_uri ? $without_events : $without_js_uri;
 	}
 
 	/**

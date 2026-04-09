@@ -110,4 +110,119 @@ final class ManageSliderTest extends TestCase {
 		$schema = ManageSlider::input_schema();
 		self::assertSame( ManageSlider::ACTIONS, $schema['properties']['action']['enum'] );
 	}
+
+	public function test_update_slider_updates_existing_row(): void {
+		$result = ManageSlider::execute(
+			array(
+				'action'  => 'update_slider',
+				'payload' => array(
+					'slider_id' => 42,
+					'title'     => 'Renamed',
+					'params'    => array( 'aria-label' => 'Renamed' ),
+				),
+			)
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( 'update_slider', $result['action'] );
+		self::assertArrayHasKey( 'updated', $result['result'] );
+		self::assertTrue( $result['result']['updated'] );
+
+		global $wpdb;
+		self::assertCount( 1, $wpdb->updates );
+		self::assertSame( 'wp_nextend2_smartslider3_sliders', $wpdb->updates[0]['table'] );
+		self::assertSame( array( 'id' => 42 ), $wpdb->updates[0]['where'] );
+	}
+
+	public function test_delete_slider_removes_row_and_related(): void {
+		$result = ManageSlider::execute(
+			array(
+				'action'  => 'delete_slider',
+				'payload' => array( 'slider_id' => 7 ),
+			)
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( 'delete_slider', $result['action'] );
+		self::assertArrayHasKey( 'deleted', $result['result'] );
+		self::assertTrue( $result['result']['deleted'] );
+
+		global $wpdb;
+		self::assertCount( 3, $wpdb->deletes );
+		self::assertSame( 'wp_nextend2_smartslider3_slides', $wpdb->deletes[0]['table'] );
+		self::assertSame( array( 'slider' => 7 ), $wpdb->deletes[0]['where'] );
+		self::assertSame( 'wp_nextend2_smartslider3_sliders_xref', $wpdb->deletes[1]['table'] );
+		self::assertSame( 'wp_nextend2_smartslider3_sliders', $wpdb->deletes[2]['table'] );
+	}
+
+	public function test_add_slide_returns_new_slide_id(): void {
+		global $wpdb;
+		$wpdb->next_insert_id = 123;
+		$wpdb->var_return     = 0;
+
+		$result = ManageSlider::execute(
+			array(
+				'action'  => 'add_slide',
+				'payload' => array(
+					'slider_id' => 10,
+					'title'     => 'Slide A',
+					'body'      => 'body text',
+				),
+			)
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( 'add_slide', $result['action'] );
+		self::assertArrayHasKey( 'slide_id', $result['result'] );
+		self::assertSame( 123, $result['result']['slide_id'] );
+		self::assertCount( 1, $wpdb->inserts );
+		self::assertSame( 'wp_nextend2_smartslider3_slides', $wpdb->inserts[0]['table'] );
+	}
+
+	public function test_update_slide_updates_existing_slide(): void {
+		global $wpdb;
+		$wpdb->var_return = 10; // parent slider id lookup after update
+
+		$result = ManageSlider::execute(
+			array(
+				'action'  => 'update_slide',
+				'payload' => array(
+					'slide_id' => 99,
+					'title'    => 'Renamed',
+				),
+			)
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( 'update_slide', $result['action'] );
+		self::assertTrue( $result['result']['updated'] );
+		self::assertCount( 1, $wpdb->updates );
+		self::assertSame( array( 'id' => 99 ), $wpdb->updates[0]['where'] );
+	}
+
+	public function test_delete_slide_removes_single_slide(): void {
+		global $wpdb;
+		$wpdb->var_return = 10; // parent slider id lookup for cache invalidation
+
+		$result = ManageSlider::execute(
+			array(
+				'action'  => 'delete_slide',
+				'payload' => array( 'slide_id' => 99 ),
+			)
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( 'delete_slide', $result['action'] );
+		self::assertTrue( $result['result']['deleted'] );
+		self::assertCount( 1, $wpdb->deletes );
+		self::assertSame( 'wp_nextend2_smartslider3_slides', $wpdb->deletes[0]['table'] );
+		self::assertSame( array( 'id' => 99 ), $wpdb->deletes[0]['where'] );
+	}
+
+	public function test_execute_rejects_unknown_action(): void {
+		$result = ManageSlider::execute( array( 'action' => 'delete_universe' ) );
+
+		self::assertInstanceOf( WP_Error::class, $result );
+		self::assertSame( 'elementor_forge_invalid_action', $result->get_error_code() );
+	}
 }

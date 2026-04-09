@@ -103,6 +103,14 @@ if ( ! class_exists( 'wpdb' ) ) {
 		public $results_return = null;
 		/** @var mixed */
 		public $var_return = 0;
+		/**
+		 * Per-call fail map for delete() so tests can simulate mid-sequence failure.
+		 * Keyed 0-based on the order delete() is invoked. When `delete_fail_at[$n]`
+		 * is truthy, the nth delete call returns false and sets last_error.
+		 *
+		 * @var array<int, bool>
+		 */
+		public $delete_fail_at = array();
 
 		public function prepare( string $query, ...$args ): string {
 			return $query . '|' . implode( ',', array_map( 'strval', $args ) );
@@ -130,7 +138,12 @@ if ( ! class_exists( 'wpdb' ) ) {
 		}
 
 		public function delete( string $table, array $where, $formats = null ) {
+			$index           = count( $this->deletes );
 			$this->deletes[] = array( 'table' => $table, 'where' => $where, 'formats' => is_array( $formats ) ? $formats : array() );
+			if ( ! empty( $this->delete_fail_at[ $index ] ) ) {
+				$this->last_error = 'fake mid-sequence delete failure';
+				return false;
+			}
 			return $this->delete_return;
 		}
 
@@ -147,6 +160,15 @@ if ( ! class_exists( 'wpdb' ) ) {
 		public function get_var( string $query ) {
 			$this->queries[] = $query;
 			return $this->var_return;
+		}
+
+		/**
+		 * Minimal query() for transaction control statements (START TRANSACTION,
+		 * COMMIT, ROLLBACK). Records the query so tests can assert on ordering.
+		 */
+		public function query( string $query ) {
+			$this->queries[] = $query;
+			return 0;
 		}
 	}
 }
