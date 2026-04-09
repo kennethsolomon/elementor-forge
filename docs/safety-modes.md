@@ -4,11 +4,11 @@ Elementor Forge ships with a plugin-level scope lock so you can install it on a 
 
 ## The three modes
 
-| Mode | UI color | Wizard | `add_section` | `create_page` | `configure_woocommerce` | Read tools |
-|---|---|---|---|---|---|---|
-| `full` | green | enabled | allow | allow | allow | allow |
-| `page_only` | yellow | **disabled** | allow **iff** post_id in allowlist; empty allowlist = **reject** | allow (new page) | **reject** (site-wide) | allow |
-| `read_only` | red | **disabled** | **reject** | **reject** | **reject** | allow |
+| Mode | UI color | Wizard | `add_section` | `create_page` | `configure_woocommerce` | `install_hello_elementor` | Read tools |
+|---|---|---|---|---|---|---|---|
+| `full` | green | enabled | allow | allow | allow | allow | allow |
+| `page_only` | yellow | **disabled** | allow **iff** post_id in allowlist; empty allowlist = **reject** | allow (new page) | **reject** (site-wide) | **reject** (site-wide theme swap) | allow |
+| `read_only` | red | **disabled** | **reject** | **reject** | **reject** | **reject** | allow |
 
 ### `full` (default)
 
@@ -76,6 +76,7 @@ When the gate rejects, the `WP_Error` returned has one of these codes:
 
 - `elementor_forge_read_only_mode` — All writes rejected in `read_only`
 - `elementor_forge_site_wide_in_page_only` — `configure_woocommerce` rejected in `page_only` (inherently site-wide)
+- `elementor_forge_theme_install_in_page_only` — `install_hello_elementor` rejected in `page_only` (inherently site-wide theme swap)
 - `elementor_forge_allowlist_empty_in_page_only` — `add_section` called in `page_only` but the allowlist is empty
 - `elementor_forge_post_not_in_allowlist` — `add_section` called with a `page_id` not in the allowlist
 - `elementor_forge_wizard_disabled` — Wizard page accessed in `page_only` or `read_only`

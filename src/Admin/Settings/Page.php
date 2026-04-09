@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace ElementorForge\Admin\Settings;
 
 use ElementorForge\Intelligence\LayoutJudge\LayoutJudge;
+use ElementorForge\Onboarding\ThemeInstaller;
 use ElementorForge\Safety\Gate;
 use ElementorForge\Safety\Mode;
 use ElementorForge\Settings\Defaults;
@@ -17,6 +18,7 @@ use ElementorForge\Settings\OptionKeys;
 use ElementorForge\Settings\Store;
 use ElementorForge\SmartSlider\SliderRepository;
 use ElementorForge\WooCommerce\WooCommerce;
+use WP_Error;
 
 /**
  * Single wp-admin settings page with four toggles, a "rerun onboarding" action,
@@ -40,6 +42,7 @@ final class Page {
 		add_action( 'admin_post_elementor_forge_wc_install_templates', array( $this, 'handle_wc_install_templates' ) );
 		add_action( 'admin_post_elementor_forge_wc_apply_fibosearch', array( $this, 'handle_wc_apply_fibosearch' ) );
 		add_action( 'admin_post_elementor_forge_wc_switch_header', array( $this, 'handle_wc_switch_header' ) );
+		add_action( 'admin_post_elementor_forge_install_hello_elementor', array( $this, 'handle_install_hello_elementor' ) );
 	}
 
 	public function register_menu(): void {
@@ -175,6 +178,9 @@ final class Page {
 			</form>
 
 			<hr />
+			<?php $this->render_appearance_section(); ?>
+
+			<hr />
 			<?php $this->render_woocommerce_section(); ?>
 
 			<hr />
@@ -193,6 +199,60 @@ final class Page {
 			?>
 			<pre><?php echo esc_html( $debug_json ); ?></pre>
 		</div>
+		<?php
+	}
+
+	/**
+	 * Render the Appearance sub-section — surfaces Hello Elementor status and
+	 * exposes a one-click install + activate button. Hello Elementor is the
+	 * only theme Elementor Pro's Theme Builder supports fully, so every new
+	 * Forge install needs it before the Theme Builder templates will render
+	 * correctly. The button is gated through {@see Gate::ACTION_THEME_INSTALL}
+	 * — allowed in full mode, rejected in page_only and read_only.
+	 */
+	private function render_appearance_section(): void {
+		$theme_installer = new ThemeInstaller();
+		$installed       = $theme_installer->is_installed();
+		$active          = $theme_installer->is_active();
+		$gate_status     = Gate::check( 'install_hello_elementor', Gate::ACTION_THEME_INSTALL );
+		$gate_allowed    = ( true === $gate_status );
+		?>
+		<h2><?php echo esc_html__( 'Appearance — Hello Elementor theme', 'elementor-forge' ); ?></h2>
+		<p>
+			<?php echo esc_html__( 'Hello Elementor is the only theme Elementor Pro Theme Builder supports fully. Install it before running the onboarding wizard or any Theme Builder template installer.', 'elementor-forge' ); ?>
+		</p>
+		<table class="widefat striped" style="max-width:700px">
+			<tbody>
+				<tr>
+					<th><?php echo esc_html__( 'Hello Elementor installed', 'elementor-forge' ); ?></th>
+					<td><?php echo $installed ? esc_html__( 'Yes', 'elementor-forge' ) : esc_html__( 'No', 'elementor-forge' ); ?></td>
+				</tr>
+				<tr>
+					<th><?php echo esc_html__( 'Hello Elementor active', 'elementor-forge' ); ?></th>
+					<td><?php echo $active ? esc_html__( 'Yes', 'elementor-forge' ) : esc_html__( 'No', 'elementor-forge' ); ?></td>
+				</tr>
+			</tbody>
+		</table>
+		<p>
+			<?php if ( $gate_allowed ) : ?>
+				<form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post" style="display:inline">
+					<?php wp_nonce_field( self::NONCE_ACTION, self::NONCE_FIELD ); ?>
+					<input type="hidden" name="action" value="elementor_forge_install_hello_elementor" />
+					<?php
+					$button_label = $active
+						? __( 'Reinstall Hello Elementor', 'elementor-forge' )
+						: ( $installed ? __( 'Activate Hello Elementor', 'elementor-forge' ) : __( 'Install &amp; activate Hello Elementor', 'elementor-forge' ) );
+					submit_button( $button_label, 'primary', 'submit', false );
+					?>
+				</form>
+			<?php else : ?>
+				<em>
+					<?php
+					echo esc_html__( 'Theme install blocked by the safety gate — switch to full scope mode in Settings → Safety to install Hello Elementor.', 'elementor-forge' );
+					?>
+				</em>
+			<?php endif; ?>
+		</p>
 		<?php
 	}
 
@@ -430,12 +490,12 @@ final class Page {
 			<tbody>
 				<?php
 				$matrix = array(
-					'create_page'          => Gate::check( 'create_page', Gate::ACTION_CREATE ),
-					'add_section'          => Gate::check( 'add_section', Gate::ACTION_MODIFY, $allowlist->is_empty() ? null : $allowlist->to_array()[0] ),
-					'apply_template'       => Gate::check( 'apply_template', Gate::ACTION_CREATE ),
-					'bulk_generate_pages'  => Gate::check( 'bulk_generate_pages', Gate::ACTION_CREATE ),
+					'create_page'           => Gate::check( 'create_page', Gate::ACTION_CREATE ),
+					'add_section'           => Gate::check( 'add_section', Gate::ACTION_MODIFY, $allowlist->is_empty() ? null : $allowlist->to_array()[0] ),
+					'apply_template'        => Gate::check( 'apply_template', Gate::ACTION_CREATE ),
+					'bulk_generate_pages'   => Gate::check( 'bulk_generate_pages', Gate::ACTION_CREATE ),
 					'configure_woocommerce' => Gate::check( 'configure_woocommerce', Gate::ACTION_SITE_WIDE ),
-					'manage_slider'        => Gate::check( 'manage_slider', Gate::ACTION_MODIFY ),
+					'manage_slider'         => Gate::check( 'manage_slider', Gate::ACTION_MODIFY ),
 				);
 				foreach ( $matrix as $tool => $result ) {
 					$is_allowed = ( true === $result );
@@ -514,6 +574,50 @@ final class Page {
 		$this->verify_admin_post();
 		( new WooCommerce() )->switch_to_ecommerce_header();
 		wp_safe_redirect( admin_url( 'admin.php?page=elementor-forge&header=ecommerce' ) );
+		exit;
+	}
+
+	/**
+	 * Install + activate Hello Elementor via the ThemeInstaller. Every call is
+	 * gated through {@see Gate::check()} with {@see Gate::ACTION_THEME_INSTALL}
+	 * so page_only and read_only scope modes cannot swap the site's theme.
+	 * Result is surfaced as a query string on the redirect so the settings
+	 * page can render a success or error notice.
+	 */
+	public function handle_install_hello_elementor(): void {
+		$this->verify_admin_post();
+
+		$gate = Gate::check( 'install_hello_elementor', Gate::ACTION_THEME_INSTALL );
+		if ( $gate instanceof WP_Error ) {
+			wp_safe_redirect(
+				add_query_arg(
+					array(
+						'page'          => 'elementor-forge',
+						'theme_install' => 'blocked',
+						'reason'        => rawurlencode( $gate->get_error_code() ),
+					),
+					admin_url( 'admin.php' )
+				)
+			);
+			exit;
+		}
+
+		$result = ( new ThemeInstaller() )->install_and_activate();
+		if ( $result instanceof WP_Error ) {
+			wp_safe_redirect(
+				add_query_arg(
+					array(
+						'page'          => 'elementor-forge',
+						'theme_install' => 'error',
+						'reason'        => rawurlencode( $result->get_error_code() ),
+					),
+					admin_url( 'admin.php' )
+				)
+			);
+			exit;
+		}
+
+		wp_safe_redirect( admin_url( 'admin.php?page=elementor-forge&theme_install=ok' ) );
 		exit;
 	}
 

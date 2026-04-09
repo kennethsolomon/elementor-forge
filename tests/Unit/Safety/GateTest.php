@@ -193,4 +193,29 @@ final class GateTest extends TestCase {
 		$this->stubSettings( 'garbage_mode_value' );
 		$this->assertSame( Mode::FULL, Gate::current_mode() );
 	}
+
+	public function test_full_mode_allows_theme_install(): void {
+		$this->stubSettings( Mode::FULL );
+		$this->assertTrue(
+			Gate::check( 'install_hello_elementor', Gate::ACTION_THEME_INSTALL )
+		);
+	}
+
+	public function test_page_only_mode_rejects_theme_install(): void {
+		$this->stubSettings( Mode::PAGE_ONLY, '52,101' );
+		$result = Gate::check( 'install_hello_elementor', Gate::ACTION_THEME_INSTALL );
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame(
+			Gate::ERR_THEME_INSTALL_IN_PAGE_ONLY,
+			$result->get_error_code()
+		);
+	}
+
+	public function test_read_only_mode_rejects_theme_install(): void {
+		$this->stubSettings( Mode::READ_ONLY );
+		$result = Gate::check( 'install_hello_elementor', Gate::ACTION_THEME_INSTALL );
+		$this->assertInstanceOf( WP_Error::class, $result );
+		// read_only takes precedence over the theme_install-specific error.
+		$this->assertSame( Gate::ERR_READ_ONLY, $result->get_error_code() );
+	}
 }

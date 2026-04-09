@@ -2,8 +2,8 @@
 /**
  * Plugin Name:       Elementor Forge
  * Plugin URI:        https://github.com/kennethsolomon/elementor-forge
- * Description:       Emitter, CPTs, Theme Builder, WooCommerce, Intelligence Layer, Smart Slider 3 CRUD, bulk generation, MCP server. Turns structured content docs into fully-built Elementor Pro pages and exposes the builder as an MCP tool surface for Claude Code.
- * Version:           0.4.0
+ * Description:       Emitter, CPTs, Theme Builder, WooCommerce, Intelligence Layer, Smart Slider 3 CRUD, bulk generation, Hello Elementor theme installer, MCP server. Turns structured content docs into fully-built Elementor Pro pages and exposes the builder as an MCP tool surface for Claude Code.
+ * Version:           0.5.0
  * Requires at least: 6.4
  * Requires PHP:      8.0
  * Author:            Kenneth Solomon
@@ -19,7 +19,7 @@ declare(strict_types=1);
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'ELEMENTOR_FORGE_VERSION', '0.4.0' );
+define( 'ELEMENTOR_FORGE_VERSION', '0.5.0' );
 define( 'ELEMENTOR_FORGE_PLUGIN_FILE', __FILE__ );
 define( 'ELEMENTOR_FORGE_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'ELEMENTOR_FORGE_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

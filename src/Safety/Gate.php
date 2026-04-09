@@ -22,33 +22,37 @@ use WP_Error;
  *
  * Decision matrix (one row per tool, one cell per mode):
  *
- *   | Tool                     | action_type | full   | page_only                                    | read_only |
- *   | ------------------------ | ----------- | ------ | -------------------------------------------- | --------- |
- *   | create_page              | create      | allow  | allow                                        | REJECT    |
- *   | add_section              | modify      | allow  | allow IFF allowlist.contains(post_id);       | REJECT    |
- *   |                          |             |        | empty allowlist → REJECT                     |           |
- *   | apply_template           | create      | allow  | allow                                        | REJECT    |
- *   | bulk_generate_pages      | create      | allow  | allow                                        | REJECT    |
- *   | configure_woocommerce    | site_wide   | allow  | REJECT                                       | REJECT    |
- *   | manage_slider            | modify      | allow  | allow (sliders are not posts)                | REJECT    |
+ *   | Tool                     | action_type   | full   | page_only                                    | read_only |
+ *   | ------------------------ | ------------- | ------ | -------------------------------------------- | --------- |
+ *   | create_page              | create        | allow  | allow                                        | REJECT    |
+ *   | add_section              | modify        | allow  | allow IFF allowlist.contains(post_id);       | REJECT    |
+ *   |                          |               |        | empty allowlist → REJECT                     |           |
+ *   | apply_template           | create        | allow  | allow                                        | REJECT    |
+ *   | bulk_generate_pages      | create        | allow  | allow                                        | REJECT    |
+ *   | configure_woocommerce    | site_wide     | allow  | REJECT                                       | REJECT    |
+ *   | manage_slider            | modify        | allow  | allow (sliders are not posts)                | REJECT    |
+ *   | install_hello_elementor  | theme_install | allow  | REJECT (site-wide theme swap)                | REJECT    |
  *
  * Error codes returned from the rejection paths:
  *
  *   - elementor_forge_read_only_mode
  *   - elementor_forge_site_wide_in_page_only
+ *   - elementor_forge_theme_install_in_page_only
  *   - elementor_forge_allowlist_empty_in_page_only
  *   - elementor_forge_post_not_in_allowlist
  */
 final class Gate {
 
-	public const ACTION_CREATE    = 'create';
-	public const ACTION_MODIFY    = 'modify';
-	public const ACTION_SITE_WIDE = 'site_wide';
+	public const ACTION_CREATE        = 'create';
+	public const ACTION_MODIFY        = 'modify';
+	public const ACTION_SITE_WIDE     = 'site_wide';
+	public const ACTION_THEME_INSTALL = 'theme_install';
 
-	public const ERR_READ_ONLY              = 'elementor_forge_read_only_mode';
-	public const ERR_SITE_WIDE_IN_PAGE_ONLY = 'elementor_forge_site_wide_in_page_only';
-	public const ERR_ALLOWLIST_EMPTY        = 'elementor_forge_allowlist_empty_in_page_only';
-	public const ERR_POST_NOT_IN_ALLOWLIST  = 'elementor_forge_post_not_in_allowlist';
+	public const ERR_READ_ONLY                 = 'elementor_forge_read_only_mode';
+	public const ERR_SITE_WIDE_IN_PAGE_ONLY    = 'elementor_forge_site_wide_in_page_only';
+	public const ERR_THEME_INSTALL_IN_PAGE_ONLY = 'elementor_forge_theme_install_in_page_only';
+	public const ERR_ALLOWLIST_EMPTY           = 'elementor_forge_allowlist_empty_in_page_only';
+	public const ERR_POST_NOT_IN_ALLOWLIST     = 'elementor_forge_post_not_in_allowlist';
 
 	/**
 	 * Check if the given tool action is allowed under the current scope mode.
@@ -89,6 +93,20 @@ final class Gate {
 				self::ERR_SITE_WIDE_IN_PAGE_ONLY,
 				sprintf(
 					'Tool "%s" blocked: site-wide actions are not allowed in page_only scope mode. Switch to full mode to run this tool.',
+					$tool_name
+				)
+			);
+		}
+
+		// Theme installs swap the active theme for the whole site — there is
+		// no per-post way to scope a theme change. Reject in page_only with a
+		// distinct error code so the caller can surface "switch to full mode
+		// to install a theme" separately from the generic site_wide message.
+		if ( self::ACTION_THEME_INSTALL === $action_type ) {
+			return new WP_Error(
+				self::ERR_THEME_INSTALL_IN_PAGE_ONLY,
+				sprintf(
+					'Tool "%s" blocked: theme install is a site-wide change and is not allowed in page_only scope mode. Switch to full mode to install a theme.',
 					$tool_name
 				)
 			);

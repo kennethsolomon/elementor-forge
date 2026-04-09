@@ -2,6 +2,41 @@
 
 All notable changes to Elementor Forge will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] — 2026-04-08 — Fibosearch Install Fix + Hello Elementor Theme Installer
+
+### Fixed
+
+- **Fibosearch wp.org slug was wrong.** The dependency allowlist entry used `fibosearch` / `fibosearch/fibosearch.php`, but the canonical wp.org plugin page slug is `ajax-search-for-woocommerce` (the "FiboSearch" name is a rebrand; the wp.org slug was never renamed). `plugins_api()` returned a 404 for the bogus slug and the wizard's install step silently no-op'd, leaving the Settings page stuck on "Fibosearch detected: No" even after the user ran the dependency step. Corrected slug to `ajax-search-for-woocommerce` and file path to `ajax-search-for-woocommerce/ajax-search-for-woocommerce.php`. Detection (`function_exists('dgwt_wcas')`) was already correct in `Configurator::is_available()` — once the install actually runs, the Settings panel now reports `detected: Yes`.
+
+### Added
+
+- **`src/Onboarding/ThemeInstaller.php`** — one-shot Hello Elementor theme installer. Wraps WP core's `Theme_Upgrader` + `themes_api()` behind a pure namespace. Methods: `install_hello_elementor()`, `activate_hello_elementor()`, `install_and_activate()`, `is_installed()`, `is_active()`. Every method returns structured arrays or `WP_Error`; capability-gated on `install_themes` / `switch_themes`; feature-detected on `Theme_Upgrader` + `themes_api()` with lazy require_once from `ABSPATH/wp-admin/includes/`. Idempotent — skip-install path returns `already_installed: true` cleanly so reinstalls on wp-env don't error.
+- **Settings page "Install Hello Elementor" button.** New "Appearance — Hello Elementor theme" section on `Elementor Forge → Settings` with a live status table (installed / active) and a one-click install+activate button. The button is hidden when the safety gate rejects the action (page_only and read_only modes); a plain-text explanation appears instead.
+- **`Gate::ACTION_THEME_INSTALL`** — new gate action constant. Allowed in `full` mode, rejected in `page_only` with the new `elementor_forge_theme_install_in_page_only` error code, rejected in `read_only` with the standard `elementor_forge_read_only_mode` error code. Theme installs are inherently site-wide — there is no post-scoped way to swap a theme — so page_only must reject them outright.
+- **Unit tests** — `tests/Unit/Onboarding/ThemeInstallerTest.php` (7 tests covering capability rejection, already-installed no-op, already-active no-op, not-installed activation error, WP_Error propagation from install → activate chain), `tests/Unit/Onboarding/DependenciesTest.php` (2 new regression tests locking the Fibosearch slug + file and rejecting the legacy `fibosearch` slug), `tests/Unit/Safety/GateTest.php` (3 new tests for `ACTION_THEME_INSTALL` in each mode).
+
+### Changed
+
+- **Plugin version** bumped to `0.5.0` (was `0.4.0`)
+- **Plugin header `Description`** rewritten to mention the Hello Elementor theme installer alongside the existing feature list
+- **`docs/safety-modes.md`** decision matrix updated with the new `theme_install` action row
+
+### Gate decision matrix (updated)
+
+| Tool | `full` | `page_only` | `read_only` |
+|---|---|---|---|
+| `create_page` | allow | allow | reject |
+| `add_section` | allow | allow iff `post_id` in allowlist; empty allowlist = reject | reject |
+| `apply_template` | allow | allow | reject |
+| `bulk_generate_pages` | allow | allow | reject |
+| `configure_woocommerce` | allow | reject (site-wide) | reject |
+| `manage_slider` | allow | allow (sliders are not posts) | reject |
+| `install_hello_elementor` | allow | reject (site-wide theme swap) | reject |
+
+### Why this ships
+
+Kenneth's SDM workflow installs Forge on client WordPress sites that often arrive with a non-Hello-Elementor theme active. Before v0.5.0 the plugin assumed Hello Elementor was already present, silently emitting Theme Builder templates against whatever theme was running — the templates looked broken on the front-end. The new installer gives Kenneth (and the MCP tool chain, later) a one-click path to get the supported theme in place. The Fibosearch install fix is a simple slug typo — the wizard was never actually installing the plugin, it was 404-ing at wp.org and silently no-op'ing.
+
 ## [0.4.0] — 2026-04-10 — Safety Feature: Scope Mode + Post ID Allowlist
 
 ### Added

@@ -85,8 +85,14 @@ final class Dependencies {
 				'auto_install' => true,
 			),
 			array(
-				'slug'           => 'fibosearch',
-				'file'           => 'fibosearch/fibosearch.php',
+				// wp.org slug is `ajax-search-for-woocommerce` — verified against
+				// https://wordpress.org/plugins/ajax-search-for-woocommerce/ and the
+				// plugin's own headers. The author-facing name "FiboSearch" is a
+				// rebrand; the wp.org slug was never renamed. Using `fibosearch`
+				// or `fibo-search` returns a 404 from plugins_api() and the wizard
+				// install step silently no-ops.
+				'slug'           => 'ajax-search-for-woocommerce',
+				'file'           => 'ajax-search-for-woocommerce/ajax-search-for-woocommerce.php',
 				'label'          => 'FiboSearch',
 				'required'       => false,
 				'auto_install'   => true,
