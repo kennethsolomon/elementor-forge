@@ -39,5 +39,27 @@ if ( false !== $wp_tests_dir && '' !== $wp_tests_dir && is_dir( $wp_tests_dir ) 
 
 	require $wp_tests_dir . '/includes/bootstrap.php';
 }
-// Unit mode (no WP_TESTS_DIR set) — Composer autoload + Brain\Monkey is all the tests need.
-// Individual tests call Brain\Monkey\setUp() / tearDown() in their own setUp/tearDown hooks.
+
+// Unit mode — declare only the classes Brain\Monkey cannot stub. Function
+// stubs live inside individual test classes via Brain\Monkey's Functions\when().
+if ( ! class_exists( 'WP_Error' ) ) {
+	class WP_Error {
+		/** @var string */
+		public $code = '';
+		/** @var string */
+		public $message = '';
+		/** @var mixed */
+		public $data;
+		public function __construct( string $code = '', string $message = '', $data = '' ) {
+			$this->code    = $code;
+			$this->message = $message;
+			$this->data    = $data;
+		}
+		public function get_error_message(): string {
+			return $this->message;
+		}
+		public function get_error_code(): string {
+			return $this->code;
+		}
+	}
+}

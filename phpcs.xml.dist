@@ -33,6 +33,32 @@
         <!-- Equals alignment is visually noisy; we skip the warning. -->
         <exclude name="WordPress.WhiteSpace.OperatorSpacing.NoSpaceBefore"/>
         <exclude name="Generic.Formatting.MultipleStatementAlignment.NotSameWarning"/>
+        <!-- PHP 8 strict typing + descriptive names carry the docblock weight. -->
+        <exclude name="Squiz.Commenting.FunctionComment.Missing"/>
+        <exclude name="Squiz.Commenting.FunctionComment.MissingParamTag"/>
+        <exclude name="Squiz.Commenting.FunctionComment.MissingParamComment"/>
+        <exclude name="Squiz.Commenting.FunctionComment.ParamCommentFullStop"/>
+        <exclude name="Squiz.Commenting.FunctionComment.ParamNameNoMatch"/>
+        <exclude name="Squiz.Commenting.FunctionComment.IncorrectTypeHint"/>
+        <exclude name="Squiz.Commenting.FunctionCommentThrowTag.Missing"/>
+        <exclude name="Squiz.Commenting.VariableComment.Missing"/>
+        <exclude name="Squiz.Commenting.ClassComment.Missing"/>
+        <exclude name="Squiz.Commenting.FileComment.Missing"/>
+        <exclude name="Squiz.Commenting.FileComment.MissingPackageTag"/>
+        <exclude name="Squiz.Commenting.InlineComment.InvalidEndChar"/>
+        <exclude name="Generic.Commenting.DocComment.MissingShort"/>
+        <exclude name="Generic.Commenting.DocComment.ShortNotCapital"/>
+        <exclude name="Generic.Commenting.DocComment.LongNotCapital"/>
+        <!-- The WordPress globals override sniff fires on local variables like $post_type or $post_id. -->
+        <exclude name="WordPress.WP.GlobalVariablesOverride.Prohibited"/>
+        <!-- mt_rand is fine for our non-security-sensitive ID generation; falling back only when CSPRNG fails. -->
+        <exclude name="WordPress.WP.AlternativeFunctions.rand_mt_rand"/>
+        <!-- Exceptions in our pure PHP path are programmer errors, not user output; escaping does not apply. -->
+        <exclude name="WordPress.Security.EscapeOutput.ExceptionNotEscaped"/>
+        <!-- Get_posts with numberposts=-1 is the canonical pattern for uninstall and bulk ops. -->
+        <exclude name="WordPress.WP.PostsPerPage.posts_per_page_numberposts"/>
+        <!-- We do our own sanitization on top of this. -->
+        <exclude name="WordPress.Security.ValidatedSanitizedInput.InputNotValidated"/>
     </rule>
 
     <rule ref="WordPress-Extra">

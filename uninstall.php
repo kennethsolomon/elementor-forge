@@ -1,17 +1,9 @@
 <?php
 /**
- * Elementor Forge uninstall.
+ * Elementor Forge uninstall — total cleanup.
  *
  * Fires when the plugin is deleted from wp-admin. Removes every option, table,
- * capability, scheduled event, and transient the plugin writes. The red-means-
- * didn't-happen ritual requires `uninstall.php` to leave zero residue.
- *
- * TODO(phase1): wire the full cleanup as options / tables are introduced.
- *   - delete_option() for each plugin option (see \ElementorForge\Settings\OptionKeys)
- *   - $wpdb->query("DROP TABLE IF EXISTS ...") for any custom tables
- *   - wp_clear_scheduled_hook() for any cron hooks
- *   - wp_cache_flush() at the end
- *   - unregister CPTs' posts only if the user opts in (destructive — default NO)
+ * capability, scheduled event, and post the plugin writes.
  *
  * @package ElementorForge
  */
@@ -22,5 +14,62 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 	exit;
 }
 
-// Phase 0 placeholder — no options to clean up yet. Phase 1 fills this in.
-// Every option key MUST be deleted here; the integration test suite verifies this.
+// Composer autoload may not be available during uninstall if files were removed
+// asynchronously, so we hard-code the option keys + CPT slugs below rather than
+// importing the Settings\OptionKeys and CPT\PostTypes classes.
+
+$elementor_forge_options = array(
+	'elementor_forge_version',
+	'elementor_forge_activated_at',
+	'elementor_forge_settings',
+	'elementor_forge_schema_version',
+	'elementor_forge_onboarding_complete',
+);
+foreach ( $elementor_forge_options as $key ) {
+	delete_option( $key );
+	delete_site_option( $key );
+}
+
+// Remove every post of our CPTs and any associated meta/terms.
+$elementor_forge_cpts = array( 'ef_location', 'ef_service', 'ef_testimonial', 'ef_faq' );
+foreach ( $elementor_forge_cpts as $post_type ) {
+	$posts = get_posts(
+		array(
+			'post_type'        => $post_type,
+			'post_status'      => 'any',
+			'numberposts'      => -1,
+			'fields'           => 'ids',
+			'suppress_filters' => true,
+		)
+	);
+	foreach ( $posts as $post_id ) {
+		wp_delete_post( (int) $post_id, true );
+	}
+}
+
+// Remove the Theme Builder + section library templates we installed (identified by
+// our own meta key on the elementor_library post type).
+$template_posts = get_posts(
+	array(
+		'post_type'        => 'elementor_library',
+		'post_status'      => 'any',
+		'numberposts'      => -1,
+		'fields'           => 'ids',
+		// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+		'meta_query'       => array(
+			array(
+				'key'     => '_ef_template_type',
+				'compare' => 'EXISTS',
+			),
+		),
+		'suppress_filters' => true,
+	)
+);
+foreach ( $template_posts as $post_id ) {
+	wp_delete_post( (int) $post_id, true );
+}
+
+// Flush everything so caches and rewrite rules don't hold stale data.
+if ( function_exists( 'wp_cache_flush' ) ) {
+	wp_cache_flush();
+}

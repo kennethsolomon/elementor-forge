@@ -9,6 +9,12 @@ declare(strict_types=1);
 
 namespace ElementorForge;
 
+use ElementorForge\ACF\Registrar as AcfRegistrar;
+use ElementorForge\Admin\Settings\Page as SettingsPage;
+use ElementorForge\CPT\Registrar as CptRegistrar;
+use ElementorForge\MCP\Server as McpServer;
+use ElementorForge\Onboarding\Wizard;
+
 /**
  * Singleton bootstrap. Orchestrates feature-detect gates, loads modules, and wires hooks.
  *
@@ -55,18 +61,25 @@ final class Plugin {
 			return;
 		}
 
+		// CPTs — always registered so uninstall and the ACF/Theme Builder code can reference them.
+		( new CptRegistrar() )->boot();
+
+		// ACF field groups — feature-detected inside the registrar.
+		( new AcfRegistrar() )->boot();
+
 		// Elementor feature-detect gate. Deferred to elementor/loaded so we don't race activation order.
 		add_action( 'elementor/loaded', array( $this, 'on_elementor_loaded' ) );
 
 		// Admin-only wiring.
 		if ( is_admin() ) {
-			// Phase 1: settings screen, onboarding wizard, generator UI.
-			// Phase 0 placeholder — registrars come online with their Phase 1 classes.
+			( new SettingsPage() )->boot();
+			( new Wizard() )->boot();
 			do_action( 'elementor_forge/admin/register' );
 		}
 
-		// MCP server gate — off if user disabled it.
-		// Phase 1 wires \ElementorForge\MCP\Server::register() here behind the option.
+		// MCP server gate — internally checks the `mcp_server` setting.
+		( new McpServer() )->boot();
+
 		do_action( 'elementor_forge/mcp/register' );
 
 		$this->booted = true;
