@@ -2,6 +2,48 @@
 
 All notable changes to Elementor Forge will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] — 2026-04-10 — Content Manipulation
+
+### Added
+
+- **`get_page_structure` MCP tool** — read-only annotated tree of an Elementor page's sections and widgets with content previews
+- **`edit_section` MCP tool** — replace a top-level section on an existing page by index or ID
+- **`delete_section` MCP tool** — remove a top-level section from a page by index or ID
+- **`reorder_sections` MCP tool** — reorder top-level sections by providing the desired index sequence
+- **`update_widget` MCP tool** — deep-walk the document tree and merge new settings into a widget by ID
+- **`duplicate_section` MCP tool** — deep-clone a section with regenerated IDs and insert at a specified position
+- **Safety gate enforcement** — all content manipulation tools (`edit_section`, `delete_section`, `reorder_sections`, `update_widget`, `duplicate_section`) run `Gate::check()` with `ACTION_MODIFY` before any write; cache is cleared via `CacheClearer` after every write
+
+## [0.7.0] — 2026-04-10 — Headers + Kit Globals
+
+### Added
+
+- **`set_kit_globals` MCP tool** — writes brand colors, typography, and button styles to the Default Kit in one call (`KitWriter`)
+- **`create_header` MCP tool** — installs a Theme Builder header from 5 presets: `business`, `ecommerce`, `portfolio`, `blog`, `saas`
+- **`create_footer` MCP tool** — installs a Theme Builder footer from 4 presets: `simple`, `multi_column`, `minimal`, `newsletter`
+- **`HeaderBuilder`** — composable header layout builder; item keywords (`logo`, `nav`, `cart`, `search`, `button:Label`, etc.) let callers describe rows in plain terms without writing raw Elementor JSON
+- **`docs/prompting-guide.md`** — prompting guide for the MCP tool chain
+- **MCP server now exposes 15 tools** (was 6)
+
+## [0.6.0] — 2026-04-10 — Fix Broken Core
+
+### Fixed
+
+- **Column width** — emit `width` dimension objects (`{ unit: '%', size: N }`) instead of the broken `_flex_size: grow`; responsive breakpoints (`width_tablet`, `width_mobile`) included on every child container
+- **Hero background default** — hero blocks now default to `background_background: classic` using the Kit primary color instead of a transparent background
+- **FAQ blocks** — emit both questions AND answers into accordion items (previously only questions were emitted)
+- **Elementor cache** — `CacheClearer` runs after every `_elementor_data` write; clears both `files_manager` and the Theme Builder conditions cache
+- **Encoder** — `wp_json_encode()` failures now throw `EncoderException` with the full `JSON_ERROR_*` code instead of silently emitting `{}`
+- **ACF field sanitization** — `apply_template` sanitizes caller-supplied ACF field values via `sanitize_acf_value()` before `update_field()`
+- **`create_page` page template** — sets `_wp_page_template` to `elementor_header_footer` on every page created by `create_page`
+- **`manage_slider` ID validation** — rejects `slider_id <= 0` with a `WP_Error` instead of silently no-op'ing
+- **Gap-aware column widths** — `column_width()` helper computes `(100% - (n-1)*gap) / n` for multi-column grids; callers pass `columns` + `gap`, Forge emits the correct percentage
+
+### Added
+
+- **239 new tests** — total 965 (up from 726)
+- **`doctrine/instantiator` pinned to `^1.5`** — ensures PHP 8.0 compatibility in test suite
+
 ## [Unreleased] — Full-Spectrum Quality Audit
 
 ### Fixed
