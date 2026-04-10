@@ -18,6 +18,24 @@
 - 2026-04-10 — Wave 9: Fixed test pollution from Store cache (PHPUnit hook), fixed linter-removed WP_Error imports, all gates pass
 - 2026-04-10 — Fixed pre-existing WizardAllowlistTest failures (Doctrine Instantiator PHP 8.0 compat — replaced createMock with manual stubs)
 
+## Session: 2026-04-10 (MCP Capability Expansion)
+- Summary: 3-phase MCP expansion — fix broken core, add headers + kit globals, add content manipulation
+
+### Completed
+| Phase | Commit | Summary |
+|-------|--------|---------|
+| A (v0.6.0) | `2e5e3f9` | Fix emitters: columns, hero bg, FAQ answers, cache clearing, encoder exception, ACF sanitization, page template, slider ID |
+| B (v0.7.0) | `b66a4e7` | 3 new tools: set_kit_globals, create_header (5 presets), create_footer (4 presets) + prompting guide |
+| C (v0.8.0) | `a9c7833` | 6 new tools: get_page_structure, edit/delete/reorder sections, update_widget, duplicate_section |
+
+### Rollback Points
+| Tag | Commit | Revert to |
+|-----|--------|-----------|
+| `pre-tests` | `a9c7833` | All 3 phases complete, before test coverage wave |
+
+### In Progress
+- Unit tests for all Phase A/B/C new code (15+ test files)
+
 ## Test Results
 | Command | Expected | Actual | Status |
 |---------|----------|--------|--------|
