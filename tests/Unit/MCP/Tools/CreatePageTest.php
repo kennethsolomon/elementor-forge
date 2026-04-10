@@ -27,6 +27,8 @@ final class CreatePageTest extends TestCase {
 				'safety_allowed_post_ids' => '',
 			)
 		);
+		Functions\when( 'delete_post_meta' )->justReturn( true );
+		Functions\when( 'delete_option' )->justReturn( true );
 	}
 
 	protected function tearDown(): void {

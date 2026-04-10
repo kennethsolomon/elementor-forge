@@ -103,6 +103,8 @@ final class WooCommerceTest extends TestCase {
 				return $this->meta_store[ $post_id ][ $key ] ?? '';
 			}
 		);
+		Functions\when( 'delete_post_meta' )->justReturn( true );
+		Functions\when( 'delete_option' )->justReturn( true );
 	}
 
 	protected function tearDown(): void {

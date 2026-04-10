@@ -37,6 +37,8 @@ final class InstallerTest extends TestCase {
 		Functions\when( 'is_wp_error' )->alias(
 			static fn ( $thing ): bool => $thing instanceof \WP_Error
 		);
+		Functions\when( 'delete_post_meta' )->justReturn( true );
+		Functions\when( 'delete_option' )->justReturn( true );
 	}
 
 	protected function tearDown(): void {
