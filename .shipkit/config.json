@@ -1,0 +1,27 @@
+{
+  "detected_at": "2026-04-10T00:00:00.000000+00:00",
+  "stack": {
+    "detected": "wordpress-plugin",
+    "detected_at": "2026-04-10",
+    "capabilities": ["api"]
+  },
+  "detection": {
+    "language": "PHP",
+    "framework": "WordPress",
+    "database": "WordPress/MySQL",
+    "testing": "PHPUnit + Playwright",
+    "browser_automation": "Playwright",
+    "lint_cmd": "composer lint",
+    "test_cmd": "composer test:unit",
+    "dev_cmd": "npm run env:start",
+    "build_cmd": "npm run build",
+    "project_name": "elementor-forge",
+    "description": "WordPress plugin — content-doc to Elementor page generator with MCP server.",
+    "arch_changelog_dir": ".claude/docs/architectural_change_log/"
+  },
+  "skills": {
+    "extra": [],
+    "disabled": []
+  },
+  "profile": "balanced"
+}
