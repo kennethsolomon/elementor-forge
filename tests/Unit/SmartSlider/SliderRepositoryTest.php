@@ -32,6 +32,12 @@ final class SliderRepositoryTest extends TestCase {
 			}
 		);
 		Functions\when( 'update_option' )->justReturn( true );
+		Functions\when( 'wp_kses_post' )->alias(
+			static function ( string $data ): string {
+				// Minimal kses — strip script/style tags for sanitization tests.
+				return preg_replace( '/<(script|style)\b[^>]*>.*?<\/\1>/is', '', $data ) ?? $data;
+			}
+		);
 
 		if ( ! defined( 'NEXTEND_SMARTSLIDER_3_URL_PATH' ) ) {
 			define( 'NEXTEND_SMARTSLIDER_3_URL_PATH', 'smart-slider3' );

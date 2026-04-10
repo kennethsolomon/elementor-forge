@@ -21,6 +21,7 @@ final class ManageSliderIdValidationTest extends TestCase {
 		Functions\when( 'wp_json_encode' )->alias( static fn ( $v ) => json_encode( $v ) );
 		Functions\when( 'is_wp_error' )->alias( static fn ( $thing ): bool => $thing instanceof WP_Error );
 		Functions\when( 'update_option' )->justReturn( true );
+		Functions\when( 'wp_kses_post' )->returnArg();
 
 		if ( ! defined( 'NEXTEND_SMARTSLIDER_3_URL_PATH' ) ) {
 			define( 'NEXTEND_SMARTSLIDER_3_URL_PATH', 'smart-slider3' );

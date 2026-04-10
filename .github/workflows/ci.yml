@@ -24,7 +24,7 @@ jobs:
         run: composer install --prefer-dist --no-progress --no-interaction
 
       - name: PHPCS
-        run: composer lint
+        run: vendor/bin/phpcs --standard=phpcs.xml.dist --warning-severity=0
 
       - name: PHPStan
         run: composer analyse

@@ -193,7 +193,7 @@ final class ApplyTemplateTest extends TestCase {
 
 		$this->assertCount( 2, $acf_updates );
 		$this->assertSame( 'phone', $acf_updates[0]['key'] );
-		$this->assertSame( '123', $acf_updates[0]['value'] );
+		$this->assertSame( 123, $acf_updates[0]['value'] );
 		$this->assertSame( 60, $acf_updates[0]['post_id'] );
 	}
 

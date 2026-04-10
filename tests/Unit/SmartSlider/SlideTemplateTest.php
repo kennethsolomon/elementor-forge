@@ -9,10 +9,23 @@ declare(strict_types=1);
 
 namespace ElementorForge\Tests\Unit\SmartSlider;
 
+use Brain\Monkey;
+use Brain\Monkey\Functions;
 use ElementorForge\SmartSlider\SlideTemplate;
 use PHPUnit\Framework\TestCase;
 
 final class SlideTemplateTest extends TestCase {
+
+	protected function setUp(): void {
+		parent::setUp();
+		Monkey\setUp();
+		Functions\when( 'wp_kses_post' )->returnArg();
+	}
+
+	protected function tearDown(): void {
+		Monkey\tearDown();
+		parent::tearDown();
+	}
 
 	public function test_minimal_with_heading_only_emits_one_layer(): void {
 		$json = SlideTemplate::minimal( 'My Heading' );
