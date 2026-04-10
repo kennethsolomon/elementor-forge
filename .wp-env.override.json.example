@@ -1,0 +1,9 @@
+{
+    "plugins": [
+        ".",
+        "https://downloads.wordpress.org/plugin/elementor.latest-stable.zip",
+        "https://downloads.wordpress.org/plugin/advanced-custom-fields.latest-stable.zip",
+        "https://downloads.wordpress.org/plugin/contact-form-7.latest-stable.zip",
+        "/absolute/path/to/elementor-pro.zip"
+    ]
+}

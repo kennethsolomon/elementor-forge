@@ -2,7 +2,33 @@
 
 WordPress plugin + MCP server that turns structured content documents into fully-built Elementor Pro pages, with an Intelligence Layer that picks layouts deterministically, a Smart Slider 3 CRUD layer, and batched bulk page generation for matrix runs (e.g. 10 suburbs × 5 services).
 
-**Status:** Phase 3 complete. Ready for handoff. See `brain.db` project id `3`.
+**Version:** 0.8.0
+**Status:** Stable. 15 MCP tools, 965 tests, PHPStan level 9 clean.
+
+## Installation
+
+### On an existing WordPress site
+
+1. Download the latest release ZIP from the [Releases](https://github.com/kennethsolomon/elementor-forge/releases) page (or build it yourself with `bin/build-dist.sh`)
+2. In WordPress admin: **Plugins > Add New > Upload Plugin** — select the ZIP
+3. Click **Activate**
+4. Go to **Elementor Forge > Setup** — the wizard will guide you through installing dependencies (Elementor, ACF, CF7, Smart Slider 3)
+5. **Elementor Pro** must be installed separately (paid plugin, not on wp.org) — upload the ZIP in Step 2 of the wizard
+
+### Requirements
+
+| Requirement | Version |
+|-------------|---------|
+| WordPress | 6.4+ |
+| PHP | 8.0+ |
+| Elementor | 3.20+ (Free for basic use, **Pro required** for Theme Builder templates) |
+
+### Optional dependencies (auto-installed by wizard)
+
+- Advanced Custom Fields (Free or Pro)
+- Contact Form 7
+- Smart Slider 3 Free
+- WooCommerce + FiboSearch (for ecommerce features)
 
 ## What it does
 
@@ -17,20 +43,29 @@ WordPress plugin + MCP server that turns structured content documents into fully
 - **Bulk page generation.** Matrix mode crosses an `items` list with a `service_items` list to produce the Cartesian product (one `ef_location` post per suburb × service combination). Transactional (`START TRANSACTION` / `COMMIT` / `ROLLBACK` on first failure, gated on engine capability). Batched (`wp_suspend_cache_addition(true)` + `wp_defer_term_counting(true)` across the loop; restored in a `finally` block so uncaught throwables never leave the cache suspended). Dry-run mode returns the plan without writing. Progress polling via a transient keyed by job ID. Meta-key allowlist blocks `_`-prefixed WP-internal keys and optionally enforces an explicit `allowed_fields` list.
 - **Onboarding wizard.** `Elementor Forge > Setup` auto-installs the curated dependency allowlist (Elementor, ACF, CF7, Smart Slider 3, WooCommerce, Fibosearch) from wp.org, registers ACF field groups for the active `acf_mode`, and installs every Theme Builder template + section template in a single pass.
 - **Admin Settings page with 4 toggles.** `acf_mode`, `ucaddon_shim`, `mcp_server`, `header_pattern` — all persisted as plugin options with sane defaults.
-- **MCP server with 6 tools** — exposed as MCP Abilities so Claude Code can remote-drive the builder. Transport via `wordpress/mcp-adapter` against an internal vendored Abilities shim (see `src/MCP/README.md` for the decision + vendoring scope).
+- **MCP server with 15 tools** — exposed as MCP Abilities so Claude Code can remote-drive the builder. Transport via `wordpress/mcp-adapter` against an internal vendored Abilities shim (see `src/MCP/README.md` for the decision + vendoring scope).
 
-## MCP tool surface (6 tools)
+## MCP tool surface (15 tools)
 
 | Tool | Purpose |
 |---|---|
+| `set_kit_globals` | Set brand colors, typography, and button styles on the Default Kit |
+| `create_header` | Create a Theme Builder header from 5 presets with full override support |
+| `create_footer` | Create a Theme Builder footer from 4 presets |
 | `create_page` | Build a one-off Elementor page from a content doc |
-| `add_section` | Append a saved section template to an existing page |
+| `add_section` | Append a section block to an existing page |
+| `get_page_structure` | Read-only: inspect any Elementor page's element tree |
+| `edit_section` | Replace a section on an existing page by index or ID |
+| `delete_section` | Remove a section from a page |
+| `reorder_sections` | Rearrange sections on a page |
+| `update_widget` | Update any widget's settings by element ID |
+| `duplicate_section` | Deep-clone a section with new IDs |
 | `apply_template` | Create a CPT post, populate ACF fields, assign the Single template |
-| `bulk_generate_pages` | Batched + transactional matrix page generation with dry-run and progress polling |
-| `configure_woocommerce` | Configure the Fibosearch + WC Theme Builder templates |
-| `manage_slider` | Smart Slider 3 CRUD (create, update, delete, get, list sliders; add, update, delete slides) — 8 actions behind a single MCP tool |
+| `bulk_generate_pages` | Batched + transactional matrix page generation |
+| `configure_woocommerce` | WC Theme Builder templates + Fibosearch configuration |
+| `manage_slider` | Smart Slider 3 CRUD — 8 actions behind a single tool |
 
-Canonical schemas + capability requirements are in `docs/mcp-tools.md`.
+Canonical schemas in `docs/mcp-tools.md`. Prompting guide in `docs/prompting-guide.md`.
 
 ## Stack constraints
 
@@ -70,8 +105,16 @@ npm install
 ### Running wp-env
 
 ```bash
-npm run env:start           # boots WP 6.5 + PHP 8.1
+npm run env:start           # boots WP 6.9 + PHP 8.1 + Elementor + ACF + CF7
 npm run env:run cli wp plugin activate elementor-forge
+```
+
+wp-env automatically installs Elementor Free, ACF, and CF7. To add **Elementor Pro** (required for Theme Builder templates):
+
+```bash
+cp .wp-env.override.json.example .wp-env.override.json
+# Edit the file — replace /absolute/path/to/elementor-pro.zip with your local Pro ZIP path
+npm run env:start
 ```
 
 ### Red-means-didn't-happen ritual
