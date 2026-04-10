@@ -92,8 +92,9 @@ final class SectionLibrary {
 	private static function trust_strip(): Document {
 		$doc = new Document( 'Trust Strip', 'section' );
 		$c   = new Container( array( 'content_width' => 'full', 'flex_direction' => 'row', 'flex_justify_content' => 'space-around' ) );
+		$width = Emitter\Emitter::column_width( 4 );
 		foreach ( array( '20+ Years Experience', 'Fully Insured', 'Satisfaction Guaranteed', '5-Star Rated' ) as $text ) {
-			$col = new Container( array( 'content_width' => 'boxed' ) );
+			$col = new Container( array( 'content_width' => 'boxed', 'width' => $width ) );
 			$col->add_child( Heading::create( $text, 'h4', 'center' ) );
 			$c->add_child( $col );
 		}
@@ -104,8 +105,9 @@ final class SectionLibrary {
 	private static function service_cards(): Document {
 		$doc = new Document( 'Service Cards', 'section' );
 		$c   = new Container( array( 'content_width' => 'boxed', 'flex_direction' => 'row', 'flex_wrap' => 'wrap' ) );
+		$width = Emitter\Emitter::column_width( 4, 20 );
 		for ( $i = 1; $i <= 4; $i++ ) {
-			$card = new Container( array( 'content_width' => 'boxed' ) );
+			$card = new Container( array( 'content_width' => 'boxed', 'width' => $width ) );
 			$card->add_child( IconBox::create( 'Service ' . $i, 'Describe the service here.' ) );
 			$c->add_child( $card );
 		}
@@ -149,8 +151,9 @@ final class SectionLibrary {
 	private static function testimonials(): Document {
 		$doc = new Document( 'Testimonials', 'section' );
 		$c   = new Container( array( 'content_width' => 'boxed', 'flex_direction' => 'row' ) );
+		$width = Emitter\Emitter::column_width( 3, 20 );
 		for ( $i = 1; $i <= 3; $i++ ) {
-			$col = new Container( array( 'content_width' => 'boxed' ) );
+			$col = new Container( array( 'content_width' => 'boxed', 'width' => $width ) );
 			$col->add_child( TextEditor::create( '"Excellent work and great communication throughout." — Customer ' . $i ) );
 			$c->add_child( $col );
 		}
@@ -161,8 +164,9 @@ final class SectionLibrary {
 	private static function process_steps(): Document {
 		$doc = new Document( 'Process Steps', 'section' );
 		$c   = new Container( array( 'content_width' => 'boxed', 'flex_direction' => 'row' ) );
+		$width = Emitter\Emitter::column_width( 4, 20 );
 		foreach ( array( '1. Request Quote', '2. On-Site Survey', '3. Approve Scope', '4. We Deliver' ) as $step ) {
-			$col = new Container( array( 'content_width' => 'boxed' ) );
+			$col = new Container( array( 'content_width' => 'boxed', 'width' => $width ) );
 			$col->add_child( IconBox::create( $step, '' ) );
 			$c->add_child( $col );
 		}
@@ -182,8 +186,9 @@ final class SectionLibrary {
 	private static function location_cards(): Document {
 		$doc = new Document( 'Location Cards', 'section' );
 		$c   = new Container( array( 'content_width' => 'boxed', 'flex_direction' => 'row', 'flex_wrap' => 'wrap' ) );
+		$width = Emitter\Emitter::column_width( 4, 20 );
 		for ( $i = 1; $i <= 4; $i++ ) {
-			$col = new Container( array( 'content_width' => 'boxed' ) );
+			$col = new Container( array( 'content_width' => 'boxed', 'width' => $width ) );
 			$col->add_child( Image::create( 0, '', 'Location ' . $i ) );
 			$col->add_child( Heading::create( 'Location ' . $i, 'h4', 'center' ) );
 			$c->add_child( $col );
@@ -204,10 +209,11 @@ final class SectionLibrary {
 	private static function map_hours(): Document {
 		$doc = new Document( 'Map and Hours', 'section' );
 		$c   = new Container( array( 'content_width' => 'boxed', 'flex_direction' => 'row' ) );
-		$col_1 = new Container( array( 'content_width' => 'boxed' ) );
+		$width = Emitter\Emitter::column_width( 2, 20 );
+		$col_1 = new Container( array( 'content_width' => 'boxed', 'width' => $width ) );
 		$col_1->add_child( GoogleMaps::create( 'Melbourne VIC', 13, 400 ) );
 		$c->add_child( $col_1 );
-		$col_2 = new Container( array( 'content_width' => 'boxed' ) );
+		$col_2 = new Container( array( 'content_width' => 'boxed', 'width' => $width ) );
 		$col_2->add_child( Heading::create( 'Hours of Operation', 'h3', 'left' ) );
 		$col_2->add_child( TextEditor::create( 'Mon-Fri: 8am - 6pm<br>Sat: 9am - 4pm<br>Sun: Closed' ) );
 		$c->add_child( $col_2 );

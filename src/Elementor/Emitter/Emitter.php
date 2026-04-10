@@ -17,6 +17,7 @@ use ElementorForge\Elementor\Emitter\Widgets\Image;
 use ElementorForge\Elementor\Emitter\Widgets\NestedAccordion;
 use ElementorForge\Elementor\Emitter\Widgets\Shortcode;
 use ElementorForge\Elementor\Emitter\Widgets\TextEditor;
+use ElementorForge\Elementor\Emitter\KitTag;
 
 /**
  * Translates a {@see ContentDoc} into a fully-constructed Elementor
@@ -149,12 +150,35 @@ final class Emitter {
 	 * @param array<string, mixed> $block
 	 */
 	private function emit_hero( array $block ): Container {
+		$bg_settings = array(
+			'background_background' => 'classic',
+			'__globals__'           => array(
+				'background_color' => KitTag::color( KitTag::COLOR_PRIMARY ),
+			),
+		);
+
+		// Allow explicit background overrides from block data.
+		if ( isset( $block['background_color'] ) && is_string( $block['background_color'] ) ) {
+			$bg_settings = array(
+				'background_background' => 'classic',
+				'background_color'      => $block['background_color'],
+			);
+		}
+		if ( isset( $block['background_image'] ) && is_array( $block['background_image'] ) ) {
+			$bg_settings['background_background'] = 'classic';
+			$bg_settings['background_image']      = $block['background_image'];
+		}
+
 		$outer = new Container(
-			array(
-				'content_width'        => 'full',
-				'min_height'           => array( 'unit' => 'vh', 'size' => 60, 'sizes' => array() ),
-				'flex_direction'       => 'column',
-				'flex_justify_content' => 'center',
+			array_merge(
+				array(
+					'content_width'        => 'full',
+					'min_height'           => array( 'unit' => 'vh', 'size' => 60, 'sizes' => array() ),
+					'flex_direction'       => 'column',
+					'flex_justify_content' => 'center',
+					'flex_align_items'     => 'center',
+				),
+				$bg_settings
 			)
 		);
 
@@ -188,10 +212,14 @@ final class Emitter {
 				'content_width'  => 'boxed',
 				'flex_direction' => 'row',
 				'flex_wrap'      => 'wrap',
+				'flex_gap'       => array( 'unit' => 'px', 'size' => 20, 'sizes' => array(), 'column' => '20', 'row' => '20', 'isLinked' => true ),
 			)
 		);
 
-		$cards = isset( $block['cards'] ) && is_array( $block['cards'] ) ? $block['cards'] : array();
+		$cards      = isset( $block['cards'] ) && is_array( $block['cards'] ) ? $block['cards'] : array();
+		$card_count = count( $cards );
+		$col_width  = $card_count > 0 ? self::column_width( $card_count, 20 ) : array( 'unit' => '%', 'size' => 100, 'sizes' => array() );
+
 		foreach ( $cards as $card ) {
 			if ( ! is_array( $card ) ) {
 				continue;
@@ -200,7 +228,7 @@ final class Emitter {
 			$card_container = new Container(
 				array(
 					'content_width' => 'boxed',
-					'_flex_size'    => 'grow',
+					'width'         => $col_width,
 				)
 			);
 			$card_container->add_child(
@@ -221,15 +249,18 @@ final class Emitter {
 	private function emit_faq( array $block ): Container {
 		$outer = new Container( array( 'content_width' => 'boxed' ) );
 
-		$items   = isset( $block['items'] ) && is_array( $block['items'] ) ? $block['items'] : array();
-		$headings = array();
+		$items          = isset( $block['items'] ) && is_array( $block['items'] ) ? $block['items'] : array();
+		$accordion_items = array();
 		foreach ( $items as $item ) {
 			if ( is_array( $item ) && isset( $item['question'] ) && is_string( $item['question'] ) ) {
-				$headings[] = $item['question'];
+				$accordion_items[] = array(
+					'title'   => $item['question'],
+					'content' => isset( $item['answer'] ) && is_string( $item['answer'] ) ? $item['answer'] : '',
+				);
 			}
 		}
 
-		$outer->add_child( NestedAccordion::create( $headings ) );
+		$outer->add_child( NestedAccordion::create( $accordion_items ) );
 		return $outer;
 	}
 
@@ -245,5 +276,31 @@ final class Emitter {
 	 */
 	private static function int( array $block, string $key, int $fallback = 0 ): int {
 		return isset( $block[ $key ] ) && ( is_int( $block[ $key ] ) || is_numeric( $block[ $key ] ) ) ? (int) $block[ $key ] : $fallback;
+	}
+
+	/**
+	 * Compute the percentage width for N equal columns accounting for gap.
+	 *
+	 * Elementor's Flexbox Container uses `width` as a dimension object with
+	 * `unit: '%'`. Unlike the legacy `_flex_size: grow` / `_inline_size` which
+	 * are ignored by the Flexbox engine, this produces actual column widths.
+	 *
+	 * @param int $count  Number of columns (must be >= 1).
+	 * @param int $gap_px Gap between columns in pixels. Width is reduced
+	 *                    proportionally so N columns + (N-1) gaps fit 100%.
+	 * @return array{unit: string, size: float|int, sizes: array<empty>}
+	 */
+	public static function column_width( int $count, int $gap_px = 0 ): array {
+		if ( $count <= 1 ) {
+			return array( 'unit' => '%', 'size' => 100, 'sizes' => array() );
+		}
+
+		// Convert gap from px to approximate % of a 1200px boxed container.
+		$container_px = 1200;
+		$total_gap_px = ( $count - 1 ) * $gap_px;
+		$total_gap_pct = ( $total_gap_px / $container_px ) * 100;
+		$size = round( ( 100 - $total_gap_pct ) / $count, 2 );
+
+		return array( 'unit' => '%', 'size' => $size, 'sizes' => array() );
 	}
 }

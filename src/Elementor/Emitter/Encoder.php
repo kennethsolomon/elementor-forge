@@ -45,7 +45,9 @@ final class Encoder {
 	public static function encode_for_meta( array $content ): string {
 		$json = wp_json_encode( $content, JSON_UNESCAPED_SLASHES );
 		if ( false === $json ) {
-			return '';
+			throw new EncoderException(
+				'Failed to JSON-encode Elementor content tree. Possible cause: non-UTF-8 data in widget settings.'
+			);
 		}
 		return wp_slash( $json );
 	}

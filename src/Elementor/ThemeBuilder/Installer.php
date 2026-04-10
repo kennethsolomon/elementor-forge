@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace ElementorForge\Elementor\ThemeBuilder;
 
+use ElementorForge\Elementor\CacheClearer;
 use ElementorForge\Elementor\Emitter\Encoder;
 
 /**
@@ -89,6 +90,8 @@ final class Installer {
 		}
 		update_post_meta( $post_id, '_elementor_edit_mode', 'builder' );
 		update_post_meta( $post_id, '_elementor_version', defined( 'ELEMENTOR_VERSION' ) ? ELEMENTOR_VERSION : '3.20.0' );
+
+		CacheClearer::clear( $post_id );
 
 		// Keep the in-memory map coherent for any subsequent install_one calls.
 		if ( null !== $this->type_map ) {

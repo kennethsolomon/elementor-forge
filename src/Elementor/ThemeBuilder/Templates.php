@@ -21,6 +21,7 @@ use ElementorForge\Elementor\Emitter\Widgets\Image;
 use ElementorForge\Elementor\Emitter\Widgets\NestedAccordion;
 use ElementorForge\Elementor\Emitter\Widgets\Shortcode;
 use ElementorForge\Elementor\Emitter\Widgets\TextEditor;
+use ElementorForge\Elementor\Emitter\Emitter;
 
 /**
  * Declarative factory for the pre-wired Elementor Theme Builder Single templates
@@ -206,17 +207,19 @@ final class Templates {
 			)
 		);
 
-		$col_1 = new Container( array( 'content_width' => 'boxed' ) );
+		$width = Emitter::column_width( 3, 20 );
+
+		$col_1 = new Container( array( 'content_width' => 'boxed', 'width' => $width ) );
 		$col_1->add_child( Heading::create( 'Contact', 'h4', 'left' ) );
 		$col_1->add_child( TextEditor::create( '[site_title]' ) );
 		$row->add_child( $col_1 );
 
-		$col_2 = new Container( array( 'content_width' => 'boxed' ) );
+		$col_2 = new Container( array( 'content_width' => 'boxed', 'width' => $width ) );
 		$col_2->add_child( Heading::create( 'Services', 'h4', 'left' ) );
 		$col_2->add_child( TextEditor::create( 'List of services here.' ) );
 		$row->add_child( $col_2 );
 
-		$col_3 = new Container( array( 'content_width' => 'boxed' ) );
+		$col_3 = new Container( array( 'content_width' => 'boxed', 'width' => $width ) );
 		$col_3->add_child( Heading::create( 'Service Areas', 'h4', 'left' ) );
 		$col_3->add_child( TextEditor::create( 'List of areas here.' ) );
 		$row->add_child( $col_3 );

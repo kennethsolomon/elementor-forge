@@ -100,9 +100,11 @@ final class ApplyTemplate {
 
 		if ( function_exists( 'update_field' ) ) {
 			foreach ( $acf_fields as $key => $value ) {
-				if ( is_string( $key ) ) {
-					update_field( $key, $value, $post_id );
+				if ( ! is_string( $key ) ) {
+					continue;
 				}
+				$value = self::sanitize_acf_value( $key, $value );
+				update_field( $key, $value, $post_id );
 			}
 		}
 
@@ -110,5 +112,57 @@ final class ApplyTemplate {
 			'post_id' => $post_id,
 			'url'     => (string) get_permalink( $post_id ),
 		);
+	}
+
+	/**
+	 * Sanitize an ACF field value based on key naming conventions.
+	 *
+	 * Keys containing 'url' or 'link' → esc_url_raw().
+	 * Keys containing 'description', 'body', or 'content' → wp_kses_post().
+	 * Integer-like values → absint().
+	 * Everything else → sanitize_text_field().
+	 *
+	 * @param string $key   ACF field key (e.g. 'suburb_name', 'description', 'map_embed_url').
+	 * @param mixed  $value The raw value from the MCP caller.
+	 * @return mixed Sanitized value.
+	 */
+	private static function sanitize_acf_value( string $key, $value ) {
+		// Arrays pass through — ACF handles complex field types (repeaters, groups).
+		if ( is_array( $value ) ) {
+			return array_map(
+				static function ( $v ) use ( $key ) {
+					if ( is_array( $v ) ) {
+						$sanitized = array();
+						foreach ( $v as $k => $inner ) {
+							$sanitized[ $k ] = is_string( $k ) ? self::sanitize_acf_value( $k, $inner ) : $inner;
+						}
+						return $sanitized;
+					}
+					return self::sanitize_acf_value( $key, $v );
+				},
+				$value
+			);
+		}
+
+		if ( ! is_string( $value ) && ! is_numeric( $value ) ) {
+			return $value;
+		}
+
+		// URL fields.
+		if ( preg_match( '/url|link/i', $key ) ) {
+			return esc_url_raw( (string) $value );
+		}
+
+		// Rich text fields.
+		if ( preg_match( '/description|body|content|wysiwyg/i', $key ) ) {
+			return wp_kses_post( (string) $value );
+		}
+
+		// Integer fields.
+		if ( is_int( $value ) || ( is_numeric( $value ) && preg_match( '/^-?\d+$/', (string) $value ) ) ) {
+			return absint( $value );
+		}
+
+		return sanitize_text_field( (string) $value );
 	}
 }

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace ElementorForge\MCP\Tools;
 
+use ElementorForge\Elementor\CacheClearer;
 use ElementorForge\Elementor\Emitter\ContentDoc;
 use ElementorForge\Elementor\Emitter\Emitter;
 use ElementorForge\Elementor\Emitter\Encoder;
@@ -100,6 +101,9 @@ final class CreatePage {
 
 		update_post_meta( $post_id, '_elementor_edit_mode', 'builder' );
 		update_post_meta( $post_id, '_elementor_version', defined( 'ELEMENTOR_VERSION' ) ? ELEMENTOR_VERSION : '3.20.0' );
+		update_post_meta( $post_id, '_wp_page_template', 'elementor_header_footer' );
+
+		CacheClearer::clear( $post_id );
 
 		return array(
 			'post_id' => $post_id,

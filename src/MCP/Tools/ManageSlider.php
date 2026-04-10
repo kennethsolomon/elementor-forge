@@ -103,6 +103,8 @@ final class ManageSlider {
 
 		try {
 			$result = self::dispatch( $repo, $action, $payload );
+		} catch ( \InvalidArgumentException $e ) {
+			return new WP_Error( 'elementor_forge_invalid_slider_id', $e->getMessage() );
 		} catch ( SmartSliderUnavailable $e ) {
 			return new WP_Error( 'elementor_forge_smart_slider_unavailable', $e->getMessage() );
 		}
@@ -114,10 +116,34 @@ final class ManageSlider {
 	}
 
 	/**
+	 * Actions that require a valid slider_id (> 0).
+	 */
+	private const SLIDER_ID_REQUIRED = array( 'update_slider', 'get_slider', 'delete_slider', 'add_slide' );
+
+	/**
+	 * Actions that require a valid slide_id (> 0).
+	 */
+	private const SLIDE_ID_REQUIRED = array( 'update_slide', 'delete_slide' );
+
+	/**
 	 * @param array<string, mixed> $payload
 	 * @return array<string, mixed>
 	 */
 	private static function dispatch( SliderRepository $repo, string $action, array $payload ): array {
+		// Validate required IDs before dispatching.
+		if ( in_array( $action, self::SLIDER_ID_REQUIRED, true ) ) {
+			$slider_id = self::int( $payload, 'slider_id' );
+			if ( $slider_id <= 0 ) {
+				throw new \InvalidArgumentException( 'slider_id must be a positive integer.' );
+			}
+		}
+		if ( in_array( $action, self::SLIDE_ID_REQUIRED, true ) ) {
+			$slide_id = self::int( $payload, 'slide_id' );
+			if ( $slide_id <= 0 ) {
+				throw new \InvalidArgumentException( 'slide_id must be a positive integer.' );
+			}
+		}
+
 		switch ( $action ) {
 			case 'create_slider':
 				$title  = self::str( $payload, 'title' );

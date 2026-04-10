@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace ElementorForge\MCP\Tools;
 
+use ElementorForge\Elementor\CacheClearer;
 use ElementorForge\Elementor\Emitter\Document;
 use ElementorForge\Elementor\Emitter\Emitter;
 use ElementorForge\Elementor\Emitter\Encoder;
@@ -92,6 +93,8 @@ final class AddSection {
 		$document->append( $container );
 
 		$ok = Encoder::write_document( $page_id, $document );
+
+		CacheClearer::clear( $page_id );
 
 		return array(
 			'post_id'  => $page_id,
