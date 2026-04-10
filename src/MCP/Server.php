@@ -39,6 +39,12 @@ final class Server {
 	public const ABILITY_SET_KIT_GLOBALS        = 'elementor-forge/set-kit-globals';
 	public const ABILITY_CREATE_HEADER          = 'elementor-forge/create-header';
 	public const ABILITY_CREATE_FOOTER          = 'elementor-forge/create-footer';
+	public const ABILITY_GET_PAGE_STRUCTURE    = 'elementor-forge/get-page-structure';
+	public const ABILITY_EDIT_SECTION          = 'elementor-forge/edit-section';
+	public const ABILITY_DELETE_SECTION        = 'elementor-forge/delete-section';
+	public const ABILITY_REORDER_SECTIONS      = 'elementor-forge/reorder-sections';
+	public const ABILITY_UPDATE_WIDGET         = 'elementor-forge/update-widget';
+	public const ABILITY_DUPLICATE_SECTION     = 'elementor-forge/duplicate-section';
 
 	public const SERVER_ID        = 'elementor-forge';
 	public const REST_NAMESPACE   = 'elementor-forge/v1';
@@ -224,6 +230,108 @@ final class Server {
 				),
 			)
 		);
+
+		wp_register_ability(
+			self::ABILITY_GET_PAGE_STRUCTURE,
+			array(
+				'label'               => 'Get Page Structure',
+				'description'         => 'Read-only: returns the annotated element tree of any Elementor page, template, or post. Use to inspect content before editing.',
+				'category'            => self::CATEGORY,
+				'input_schema'        => Tools\GetPageStructure::input_schema(),
+				'output_schema'       => Tools\GetPageStructure::output_schema(),
+				'execute_callback'    => array( Tools\GetPageStructure::class, 'execute' ),
+				'permission_callback' => array( Tools\GetPageStructure::class, 'permission' ),
+				'meta'                => array(
+					'annotations'  => array( 'destructive' => false, 'idempotent' => true ),
+					'show_in_rest' => false,
+				),
+			)
+		);
+
+		wp_register_ability(
+			self::ABILITY_EDIT_SECTION,
+			array(
+				'label'               => 'Edit Section',
+				'description'         => 'Replace a top-level section on an Elementor page by index or element ID. Use get_page_structure first to find the target.',
+				'category'            => self::CATEGORY,
+				'input_schema'        => Tools\EditSection::input_schema(),
+				'output_schema'       => Tools\EditSection::output_schema(),
+				'execute_callback'    => array( Tools\EditSection::class, 'execute' ),
+				'permission_callback' => array( Tools\EditSection::class, 'permission' ),
+				'meta'                => array(
+					'annotations'  => array( 'destructive' => true, 'idempotent' => false ),
+					'show_in_rest' => false,
+				),
+			)
+		);
+
+		wp_register_ability(
+			self::ABILITY_DELETE_SECTION,
+			array(
+				'label'               => 'Delete Section',
+				'description'         => 'Remove a top-level section from an Elementor page by index or element ID.',
+				'category'            => self::CATEGORY,
+				'input_schema'        => Tools\DeleteSection::input_schema(),
+				'output_schema'       => Tools\DeleteSection::output_schema(),
+				'execute_callback'    => array( Tools\DeleteSection::class, 'execute' ),
+				'permission_callback' => array( Tools\DeleteSection::class, 'permission' ),
+				'meta'                => array(
+					'annotations'  => array( 'destructive' => true, 'idempotent' => false ),
+					'show_in_rest' => false,
+				),
+			)
+		);
+
+		wp_register_ability(
+			self::ABILITY_REORDER_SECTIONS,
+			array(
+				'label'               => 'Reorder Sections',
+				'description'         => 'Change the order of top-level sections on an Elementor page. Provide the desired order as an array of current section indices.',
+				'category'            => self::CATEGORY,
+				'input_schema'        => Tools\ReorderSections::input_schema(),
+				'output_schema'       => Tools\ReorderSections::output_schema(),
+				'execute_callback'    => array( Tools\ReorderSections::class, 'execute' ),
+				'permission_callback' => array( Tools\ReorderSections::class, 'permission' ),
+				'meta'                => array(
+					'annotations'  => array( 'destructive' => true, 'idempotent' => false ),
+					'show_in_rest' => false,
+				),
+			)
+		);
+
+		wp_register_ability(
+			self::ABILITY_UPDATE_WIDGET,
+			array(
+				'label'               => 'Update Widget',
+				'description'         => 'Update a widget\'s settings by element ID. Merges new settings into existing. Use get_page_structure to find widget IDs.',
+				'category'            => self::CATEGORY,
+				'input_schema'        => Tools\UpdateWidget::input_schema(),
+				'output_schema'       => Tools\UpdateWidget::output_schema(),
+				'execute_callback'    => array( Tools\UpdateWidget::class, 'execute' ),
+				'permission_callback' => array( Tools\UpdateWidget::class, 'permission' ),
+				'meta'                => array(
+					'annotations'  => array( 'destructive' => true, 'idempotent' => false ),
+					'show_in_rest' => false,
+				),
+			)
+		);
+
+		wp_register_ability(
+			self::ABILITY_DUPLICATE_SECTION,
+			array(
+				'label'               => 'Duplicate Section',
+				'description'         => 'Deep-clone a top-level section with new IDs and insert it after the original or at a specified position.',
+				'category'            => self::CATEGORY,
+				'input_schema'        => Tools\DuplicateSection::input_schema(),
+				'output_schema'       => Tools\DuplicateSection::output_schema(),
+				'execute_callback'    => array( Tools\DuplicateSection::class, 'execute' ),
+				'permission_callback' => array( Tools\DuplicateSection::class, 'permission' ),
+				'meta'                => array(
+					'annotations'  => array( 'destructive' => true, 'idempotent' => false ),
+					'show_in_rest' => false,
+				),
+			)
+		);
 	}
 
 	public function register_server( McpAdapter $adapter ): void {
@@ -247,6 +355,12 @@ final class Server {
 				self::ABILITY_SET_KIT_GLOBALS,
 				self::ABILITY_CREATE_HEADER,
 				self::ABILITY_CREATE_FOOTER,
+				self::ABILITY_GET_PAGE_STRUCTURE,
+				self::ABILITY_EDIT_SECTION,
+				self::ABILITY_DELETE_SECTION,
+				self::ABILITY_REORDER_SECTIONS,
+				self::ABILITY_UPDATE_WIDGET,
+				self::ABILITY_DUPLICATE_SECTION,
 			),
 			array(),
 			array(),
