@@ -36,6 +36,9 @@ final class Server {
 	public const ABILITY_BULK_GENERATE          = 'elementor-forge/bulk-generate-pages';
 	public const ABILITY_CONFIGURE_WOOCOMMERCE  = 'elementor-forge/configure-woocommerce';
 	public const ABILITY_MANAGE_SLIDER          = 'elementor-forge/manage-slider';
+	public const ABILITY_SET_KIT_GLOBALS        = 'elementor-forge/set-kit-globals';
+	public const ABILITY_CREATE_HEADER          = 'elementor-forge/create-header';
+	public const ABILITY_CREATE_FOOTER          = 'elementor-forge/create-footer';
 
 	public const SERVER_ID        = 'elementor-forge';
 	public const REST_NAMESPACE   = 'elementor-forge/v1';
@@ -170,6 +173,57 @@ final class Server {
 				),
 			)
 		);
+
+		wp_register_ability(
+			self::ABILITY_SET_KIT_GLOBALS,
+			array(
+				'label'               => 'Set Kit Globals',
+				'description'         => 'Set the Default Kit brand palette: colors (primary, secondary, text, accent), typography (headings, body), and button styles. Call this FIRST when setting up a new site.',
+				'category'            => self::CATEGORY,
+				'input_schema'        => Tools\SetKitGlobals::input_schema(),
+				'output_schema'       => Tools\SetKitGlobals::output_schema(),
+				'execute_callback'    => array( Tools\SetKitGlobals::class, 'execute' ),
+				'permission_callback' => array( Tools\SetKitGlobals::class, 'permission' ),
+				'meta'                => array(
+					'annotations'  => array( 'destructive' => true, 'idempotent' => true ),
+					'show_in_rest' => false,
+				),
+			)
+		);
+
+		wp_register_ability(
+			self::ABILITY_CREATE_HEADER,
+			array(
+				'label'               => 'Create Header',
+				'description'         => 'Create a Theme Builder header from a preset (business, ecommerce, portfolio, blog, saas) with optional overrides. Supports custom row layouts, sticky behavior, and transparent mode.',
+				'category'            => self::CATEGORY,
+				'input_schema'        => Tools\CreateHeader::input_schema(),
+				'output_schema'       => Tools\CreateHeader::output_schema(),
+				'execute_callback'    => array( Tools\CreateHeader::class, 'execute' ),
+				'permission_callback' => array( Tools\CreateHeader::class, 'permission' ),
+				'meta'                => array(
+					'annotations'  => array( 'destructive' => true, 'idempotent' => false ),
+					'show_in_rest' => false,
+				),
+			)
+		);
+
+		wp_register_ability(
+			self::ABILITY_CREATE_FOOTER,
+			array(
+				'label'               => 'Create Footer',
+				'description'         => 'Create a Theme Builder footer from a preset (simple, multi_column, minimal, newsletter) with optional overrides. Supports custom background and copyright text.',
+				'category'            => self::CATEGORY,
+				'input_schema'        => Tools\CreateFooter::input_schema(),
+				'output_schema'       => Tools\CreateFooter::output_schema(),
+				'execute_callback'    => array( Tools\CreateFooter::class, 'execute' ),
+				'permission_callback' => array( Tools\CreateFooter::class, 'permission' ),
+				'meta'                => array(
+					'annotations'  => array( 'destructive' => true, 'idempotent' => false ),
+					'show_in_rest' => false,
+				),
+			)
+		);
 	}
 
 	public function register_server( McpAdapter $adapter ): void {
@@ -190,6 +244,9 @@ final class Server {
 				self::ABILITY_BULK_GENERATE,
 				self::ABILITY_CONFIGURE_WOOCOMMERCE,
 				self::ABILITY_MANAGE_SLIDER,
+				self::ABILITY_SET_KIT_GLOBALS,
+				self::ABILITY_CREATE_HEADER,
+				self::ABILITY_CREATE_FOOTER,
 			),
 			array(),
 			array(),
