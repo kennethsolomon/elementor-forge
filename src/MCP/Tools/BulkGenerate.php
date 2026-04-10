@@ -222,7 +222,7 @@ final class BulkGenerate {
 				} else {
 					$created[] = $result;
 				}
-				self::progress_advance( $job_id, $idx + 1 );
+				self::progress_advance( $job_id, $idx + 1, count( $plan ) );
 			}
 
 			if ( $transaction_active && ! $rolled_back && isset( $wpdb ) && method_exists( $wpdb, 'query' ) ) {
@@ -411,8 +411,19 @@ final class BulkGenerate {
 		);
 	}
 
-	private static function progress_advance( string $job_id, int $completed ): void {
+	/**
+	 * Batch-update progress every 5 items to avoid N+1 transient writes.
+	 *
+	 * @param string $job_id   Job identifier.
+	 * @param int    $completed Number of items completed so far.
+	 * @param int    $total     Total items planned (forces write on last item).
+	 */
+	private static function progress_advance( string $job_id, int $completed, int $total = 0 ): void {
 		if ( ! function_exists( 'set_transient' ) || ! function_exists( 'get_transient' ) ) {
+			return;
+		}
+		$is_last = ( $total > 0 && $completed >= $total );
+		if ( ! $is_last && 0 !== ( $completed % 5 ) ) {
 			return;
 		}
 		$current = get_transient( self::TRANSIENT_PREFIX . $job_id );

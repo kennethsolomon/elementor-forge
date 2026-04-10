@@ -20,6 +20,9 @@
             <directory>tests/Integration</directory>
         </testsuite>
     </testsuites>
+    <extensions>
+        <extension class="ElementorForge\Tests\StoreFlushHook" />
+    </extensions>
     <coverage processUncoveredFiles="true">
         <include>
             <directory suffix=".php">src</directory>

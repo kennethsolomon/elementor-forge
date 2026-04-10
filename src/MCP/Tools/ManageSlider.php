@@ -78,11 +78,12 @@ final class ManageSlider {
 	 * @return array<string, mixed>|WP_Error
 	 */
 	public static function execute( array $input ) {
-		// manage_slider's CRUD surface mixes list/get (reads) with create/update/delete
-		// (writes). The Gate treats the entire tool as a write surface in read_only
-		// mode — callers that want read access in read_only must run SQL directly.
-		// In page_only mode sliders are not posts so the allowlist is bypassed per
-		// Gate's special-case handling.
+		/*
+		 * The CRUD surface mixes reads (list, get) and writes (create, update,
+		 * delete). Gate treats the entire tool as a write surface in read-only
+		 * mode. Callers needing read access under read-only must query directly.
+		 * In page-only mode, sliders are not posts, so the allowlist is bypassed.
+		 */
 		$gate = Gate::check( 'manage_slider', Gate::ACTION_MODIFY );
 		if ( is_wp_error( $gate ) ) {
 			return $gate;

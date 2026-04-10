@@ -75,6 +75,7 @@ final class ParserTest extends TestCase {
 			$path = dirname( __DIR__, 4 ) . '/../../Team Inbox/SDM/' . $filename;
 		}
 		$this->assertFileExists( $path, 'Sample JSON not found at ' . $path );
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local test fixture, not a remote URL.
 		$contents = file_get_contents( $path );
 		$this->assertIsString( $contents );
 		$decoded = json_decode( $contents, true );

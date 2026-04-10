@@ -2,6 +2,34 @@
 
 All notable changes to Elementor Forge will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — Full-Spectrum Quality Audit
+
+### Fixed
+
+- **PHPCS warnings resolved** — removed ambiguous comment in `ManageSlider.php:81` that triggered `Squiz.PHP.CommentedOutCode`, added `phpcs:ignore` for legitimate `file_get_contents` in test fixtures (`RoundTripTest.php`, `ParserTest.php`)
+- **N+1 transient writes in `BulkGenerate`** — `progress_advance()` now batches writes every 5 items instead of every iteration, reducing transient I/O by ~80% on typical bulk jobs
+- **`Store::all()` repeated `get_option` calls** — added request-level static cache with `flush_cache()` invalidation on writes, eliminating redundant `array_merge` on every `Store::get()` call
+- **Pre-existing test failures** — replaced `createMock()` in `WizardAllowlistTest` with manual stub to avoid Doctrine Instantiator 2.x PHP 8.3 syntax errors on PHP 8.0 runtime
+- **Test isolation** — added `StoreFlushHook` PHPUnit extension to prevent Store static cache leaking between tests
+
+### Added
+
+- **`src/Support/ErrorHandling.php`** — `throw_if_wp_error()` helper for converting `WP_Error` to exceptions at WordPress API boundaries
+- **444 new unit tests** across 30 test files covering previously untested classes:
+  - Elementor emission layer: `Node`, `RawNode`, `Widget`, `Breakpoints`, `Units`, `DynamicWidget`, `Installer`, `TemplateSpec`
+  - Intelligence/LayoutJudge: `Decision`, `Rule` interface, `FaqRule`, `GalleryRule`, `IconBoxGridRule`, `IconListRule`, `NestedCarouselRule`, `TextHeavyAccordionRule`
+  - MCP tools: `AddSection`, `ApplyTemplate`, `CreatePage`, `WP_Ability`, `WP_Abilities_Registry`, `WP_Ability_Category`, `WP_Ability_Categories_Registry`, `Server`
+  - Infrastructure: `Activator`, `Deactivator`, `Wizard`, `PluginInstaller`, `Plugin`
+  - Settings: `Defaults`, `OptionKeys`
+  - Remaining: `ACF/Registrar`, `CPT/Registrar`, `SmartSliderUnavailable`, `WooCommerce/ThemeBuilder/Installer`
+- **Test total: 726 tests, 1871 assertions** (up from 282 tests)
+
+### Changed
+
+- `BulkGenerate::progress_advance()` signature: added optional `$total` parameter for boundary detection
+- `Store::all()` now returns cached result within the same request; use `Store::flush_cache()` after manual option writes
+- `phpunit.xml.dist` — added `StoreFlushHook` extension for test isolation
+
 ## [0.5.0] — 2026-04-08 — Fibosearch Install Fix + Hello Elementor Theme Installer
 
 ### Fixed

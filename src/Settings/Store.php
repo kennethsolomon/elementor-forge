@@ -23,16 +23,35 @@ use ElementorForge\Safety\Mode;
 final class Store {
 
 	/**
+	 * Request-level cache to avoid repeated get_option + array_merge calls.
+	 *
+	 * @var array<string, string>|null
+	 */
+	private static ?array $cache = null;
+
+	/**
 	 * Returns every setting, falling back to defaults for any missing key.
+	 * Result is cached for the current request.
 	 *
 	 * @return array<string, string>
 	 */
 	public static function all(): array {
+		if ( null !== self::$cache ) {
+			return self::$cache;
+		}
 		$stored = get_option( OptionKeys::SETTINGS, array() );
 		if ( ! is_array( $stored ) ) {
 			$stored = array();
 		}
-		return array_merge( Defaults::all(), $stored );
+		self::$cache = array_merge( Defaults::all(), $stored );
+		return self::$cache;
+	}
+
+	/**
+	 * Invalidate the request-level cache. Called after any write operation.
+	 */
+	public static function flush_cache(): void {
+		self::$cache = null;
 	}
 
 	/**
@@ -51,14 +70,18 @@ final class Store {
 	public static function update( array $partial ): bool {
 		$current = self::all();
 		$next    = array_merge( $current, self::sanitize( $partial ) );
-		return (bool) update_option( OptionKeys::SETTINGS, $next, false );
+		$result  = (bool) update_option( OptionKeys::SETTINGS, $next, false );
+		self::flush_cache();
+		return $result;
 	}
 
 	/**
 	 * Reset all settings to defaults.
 	 */
 	public static function reset(): bool {
-		return (bool) update_option( OptionKeys::SETTINGS, Defaults::all(), false );
+		$result = (bool) update_option( OptionKeys::SETTINGS, Defaults::all(), false );
+		self::flush_cache();
+		return $result;
 	}
 
 	/**
